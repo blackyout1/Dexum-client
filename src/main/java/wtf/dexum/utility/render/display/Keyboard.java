@@ -1,0 +1,166 @@
+package wtf.dexum.utility.render.display;
+
+import java.util.HashMap;
+import java.util.Map;
+import lombok.Generated;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.util.InputUtil;
+
+public enum Keyboard {
+   KEY_SPACE("SPACE", 32),
+   KEY_APOSTROPHE("APOSTROPHE", 39),
+   KEY_COMMA("COMMA", 44),
+   KEY_MINUS("MINUS", 45),
+   KEY_PERIOD("PERIOD", 46),
+   KEY_SLASH("SLASH", 47),
+   KEY_0("0", 48),
+   KEY_1("1", 49),
+   KEY_2("2", 50),
+   KEY_3("3", 51),
+   KEY_4("4", 52),
+   KEY_5("5", 53),
+   KEY_6("6", 54),
+   KEY_7("7", 55),
+   KEY_8("8", 56),
+   KEY_9("9", 57),
+   KEY_SEMICOLON("SEMICOLON", 59),
+   KEY_EQUAL("EQUAL", 61),
+   KEY_A("A", 65),
+   KEY_B("B", 66),
+   KEY_C("C", 67),
+   KEY_D("D", 68),
+   KEY_E("E", 69),
+   KEY_F("F", 70),
+   KEY_G("G", 71),
+   KEY_H("H", 72),
+   KEY_I("I", 73),
+   KEY_J("J", 74),
+   KEY_K("K", 75),
+   KEY_L("L", 76),
+   KEY_M("M", 77),
+   KEY_N("N", 78),
+   KEY_O("O", 79),
+   KEY_P("P", 80),
+   KEY_Q("Q", 81),
+   KEY_R("R", 82),
+   KEY_S("S", 83),
+   KEY_T("T", 84),
+   KEY_U("U", 85),
+   KEY_V("V", 86),
+   KEY_W("W", 87),
+   KEY_X("X", 88),
+   KEY_Y("Y", 89),
+   KEY_Z("Z", 90),
+   KEY_LEFT_BRACKET("LEFT_BRACKET", 91),
+   KEY_BACKSLASH("BACKSLASH", 92),
+   KEY_RIGHT_BRACKET("RIGHT_BRACKET", 93),
+   KEY_GRAVE_ACCENT("GRAVE_ACCENT", 96),
+   KEY_ESCAPE("ESCAPE", 256),
+   KEY_ENTER("ENTER", 257),
+   KEY_TAB("TAB", 258),
+   KEY_BACKSPACE("BACKSPACE", 259),
+   KEY_INSERT("INSERT", 260),
+   KEY_DELETE("DELETE", 261),
+   KEY_RIGHT("RIGHT", 262),
+   KEY_LEFT("LEFT", 263),
+   KEY_DOWN("DOWN", 264),
+   KEY_UP("UP", 265),
+   KEY_CAPS_LOCK("CAPS_LOCK", 280),
+   KEY_SCROLL_LOCK("SCROLL_LOCK", 281),
+   KEY_NUM_LOCK("NUM_LOCK", 282),
+   KEY_PRINT_SCREEN("PRINT_SCREEN", 283),
+   KEY_PAUSE("PAUSE", 284),
+   KEY_HOME("INSERT", 268),
+   KEY_END("END", 269),
+   KEY_PAGE_UP("PAGE_UP", 266),
+   KEY_PAGE_DOWN("PAGE_DOWN", 267),
+   KEY_F1("F1", 290),
+   KEY_F2("F2", 291),
+   KEY_F3("F3", 292),
+   KEY_F4("F4", 293),
+   KEY_F5("F5", 294),
+   KEY_F6("F6", 295),
+   KEY_F7("F7", 296),
+   KEY_F8("F8", 297),
+   KEY_F9("F9", 298),
+   KEY_F10("F10", 299),
+   KEY_F11("F11", 300),
+   KEY_F12("F12", 301),
+   KEY_KP_0("NUMPAD_0", 320),
+   KEY_KP_1("NUMPAD_1", 321),
+   KEY_KP_2("NUMPAD_2", 322),
+   KEY_KP_3("NUMPAD_3", 323),
+   KEY_KP_4("NUMPAD_4", 324),
+   KEY_KP_5("NUMPAD_5", 325),
+   KEY_KP_6("NUMPAD_6", 326),
+   KEY_KP_7("NUMPAD_7", 327),
+   KEY_KP_8("NUMPAD_8", 328),
+   KEY_KP_9("NUMPAD_9", 329),
+   KEY_KP_DECIMAL("NUMPAD_DECIMAL", 330),
+   KEY_KP_DIVIDE("NUMPAD_DIVIDE", 331),
+   KEY_KP_MULTIPLY("NUMPAD_MULTIPLY", 332),
+   KEY_KP_SUBTRACT("NUMPAD_SUBTRACT", 333),
+   KEY_KP_ADD("NUMPAD_ADD", 334),
+   KEY_KP_ENTER("NUMPAD_ENTER", 335),
+   KEY_KP_EQUAL("NUMPAD_EQUAL", 336),
+   KEY_LEFT_SUPER("LEFT_SUPER", 343),
+   KEY_RIGHT_SUPER("RIGHT_SUPER", 347),
+   KEY_MENU("MENU", 348),
+   KEY_WORLD_1("WORLD_1", 161),
+   KEY_WORLD_2("WORLD_2", 162),
+   KEY_LEFT_SHIFT("LEFT_SHIFT", 340),
+   KEY_LEFT_CONTROL("LEFT_CONTROL", 341),
+   KEY_LEFT_ALT("LEFT_ALT", 342),
+   KEY_RIGHT_SHIFT("RIGHT_SHIFT", 344),
+   KEY_RIGHT_CONTROL("RIGHT_CONTROL", 345),
+   KEY_RIGHT_ALT("RIGHT_ALT", 346),
+   MOUSE_1("MOUSE1", 0),
+   MOUSE_2("MOUSE2", 1),
+   MOUSE_3("MOUSE3", 2),
+   MOUSE_4("MOUSE4", 3),
+   MOUSE_5("MOUSE5", 4),
+   KEY_NONE("", -1);
+
+   public final String name;
+   public final int keyCode;
+   private static final Map<Integer, Keyboard> BY_CODE = new HashMap();
+   public static final Map<String, Keyboard> BY_NAME = new HashMap();
+
+   public String toString() {
+      return this.name;
+   }
+
+   public static String getKeyName(int keyCode) {
+      return ((Keyboard)BY_CODE.getOrDefault(keyCode, KEY_NONE)).name;
+   }
+
+   public static int getKeyCode(String keyName) {
+      return ((Keyboard)BY_NAME.getOrDefault(keyName.toLowerCase(), KEY_NONE)).keyCode;
+   }
+
+   public static boolean isKeyDown(int keyCode) {
+      return InputUtil.isKeyPressed(MinecraftClient.getInstance().getWindow().getHandle(), keyCode);
+   }
+
+   @Generated
+   private Keyboard(final String name, final int keyCode) {
+      this.name = name;
+      this.keyCode = keyCode;
+   }
+
+   private static Keyboard[] $values() {
+      return new Keyboard[]{KEY_SPACE, KEY_APOSTROPHE, KEY_COMMA, KEY_MINUS, KEY_PERIOD, KEY_SLASH, KEY_0, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_SEMICOLON, KEY_EQUAL, KEY_A, KEY_B, KEY_C, KEY_D, KEY_E, KEY_F, KEY_G, KEY_H, KEY_I, KEY_J, KEY_K, KEY_L, KEY_M, KEY_N, KEY_O, KEY_P, KEY_Q, KEY_R, KEY_S, KEY_T, KEY_U, KEY_V, KEY_W, KEY_X, KEY_Y, KEY_Z, KEY_LEFT_BRACKET, KEY_BACKSLASH, KEY_RIGHT_BRACKET, KEY_GRAVE_ACCENT, KEY_ESCAPE, KEY_ENTER, KEY_TAB, KEY_BACKSPACE, KEY_INSERT, KEY_DELETE, KEY_RIGHT, KEY_LEFT, KEY_DOWN, KEY_UP, KEY_CAPS_LOCK, KEY_SCROLL_LOCK, KEY_NUM_LOCK, KEY_PRINT_SCREEN, KEY_PAUSE, KEY_HOME, KEY_END, KEY_PAGE_UP, KEY_PAGE_DOWN, KEY_F1, KEY_F2, KEY_F3, KEY_F4, KEY_F5, KEY_F6, KEY_F7, KEY_F8, KEY_F9, KEY_F10, KEY_F11, KEY_F12, KEY_KP_0, KEY_KP_1, KEY_KP_2, KEY_KP_3, KEY_KP_4, KEY_KP_5, KEY_KP_6, KEY_KP_7, KEY_KP_8, KEY_KP_9, KEY_KP_DECIMAL, KEY_KP_DIVIDE, KEY_KP_MULTIPLY, KEY_KP_SUBTRACT, KEY_KP_ADD, KEY_KP_ENTER, KEY_KP_EQUAL, KEY_LEFT_SUPER, KEY_RIGHT_SUPER, KEY_MENU, KEY_WORLD_1, KEY_WORLD_2, KEY_LEFT_SHIFT, KEY_LEFT_CONTROL, KEY_LEFT_ALT, KEY_RIGHT_SHIFT, KEY_RIGHT_CONTROL, KEY_RIGHT_ALT, MOUSE_1, MOUSE_2, MOUSE_3, MOUSE_4, MOUSE_5, KEY_NONE};
+   }
+
+   static {
+      Keyboard[] var0 = values();
+      int var1 = var0.length;
+
+      for(int var2 = 0; var2 < var1; ++var2) {
+         Keyboard key = var0[var2];
+         BY_CODE.put(key.keyCode, key);
+         BY_NAME.put(key.name.toLowerCase(), key);
+      }
+
+   }
+}

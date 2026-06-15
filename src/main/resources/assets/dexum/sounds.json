@@ -1,0 +1,12 @@
+{
+  "enable": {
+    "sounds": [
+      "dexum:enable"
+    ]
+  },
+  "disable": {
+    "sounds": [
+      "dexum:disable"
+    ]
+  }
+}

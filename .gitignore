@@ -1,0 +1,10 @@
+/.idea/
+/.gradle/
+/build/
+/run/
+/bin/
+/.classpath/
+/.project/
+/.settings/
+/javelinpepe-recode-fabric_client.launch/
+/javelinpepe-recode-fabric_server.launch/

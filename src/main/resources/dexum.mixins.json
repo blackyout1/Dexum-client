@@ -1,0 +1,62 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "wtf.dexum.utility.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "accessors.ItemStackAccessor",
+    "client.ClientWorldMixin",
+    "client.EntityMixin",
+    "client.PlayerEntityMixin",
+    "client.ScoreboarMixin",
+    "minecraft.entity.FireworkRocketEntityMixin",
+    "minecraft.entity.LimbAnimatorMixin",
+    "minecraft.entity.LivingEntityMixin",
+    "minecraft.entity.PlayerEntityMixin",
+    "minecraft.network.ClientConnectionMixin",
+    "minecraft.team.TeamMixin",
+    "minecraft.text.TextVisitFactoryMixin"
+  ],
+  "client": [
+    "accessors.CameraAccessor",
+    "accessors.DrawContextAccessor",
+    "accessors.HandledScreenAccessor",
+    "accessors.InGameHudAccessor",
+    "accessors.ShaderProgramAccessor",
+    "client.BackGroundRendererMixin",
+    "client.CameraMixin",
+    "client.ChatInputSuggestorMixin",
+    "client.ClientPlayerEntityMixin",
+    "client.ClientPlayerInteractionManagerMixin",
+    "client.HandledScreenMixin",
+    "client.HeldItemRendererMixin",
+    "client.KeyboardInputMixin",
+    "client.KeyboardMixin",
+    "client.LightmapTextureManagerMixin",
+    "client.MinecraftClientMixin",
+    "client.MouseMixin",
+    "client.WorldRendererMixin",
+    "client.render.LivingEntityRendererMixin",
+    "client.render.RenderSystemMixin",
+    "client.render.ScreenMixin",
+    "client.render.WindowMixin",
+    "client.render.gui.hud.GameOverlayRendererMixin",
+    "client.render.gui.hud.InGameHudMixin",
+    "client.render.gui.screen.ChatScreenMixin",
+    "client.render.gui.screen.HandledScreenMixin",
+    "client.sound.SoundSystemMixin",
+    "minecraft.network.ClientPlayNetworkHandlerMixin",
+    "minecraft.render.ClientWorldPropertiesMixin",
+    "minecraft.render.FeatureRendererMixin",
+    "minecraft.render.HeldItemFeatureRendererMixin",
+    "minecraft.render.MixinGameRenderer",
+    "minecraft.render.PlayerEntityRendererMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  },
+  "refmap": "dexum-refmap.json"
+}

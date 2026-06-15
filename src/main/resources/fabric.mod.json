@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "dexum",
+  "version": "1.0-SNAPSHOT",
+  "name": "dexum",
+  "description": "",
+  "authors": [],
+  "contact": {},
+  "license": "All-Rights-Reserved",
+  "icon": "assets/dexum/icons/avatar.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      {
+        "adapter": "default",
+        "value": "wtf.dexum.Dexum::INSTANCE"
+      }
+    ]
+  },
+  "mixins": [
+    "dexum.mixins.json"
+  ],
+  "accessWidener": "dexum.accesswidener",
+  "depends": {
+    "fabricloader": ">=0.16.10",
+    "fabric": "*",
+    "minecraft": "1.21.4"
+  }
+}

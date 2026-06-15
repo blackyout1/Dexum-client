@@ -1,0 +1,71 @@
+package wtf.dexum.utility.render.display.base;
+
+import org.jetbrains.annotations.NotNull;
+
+public record BorderRadius(float topLeftRadius, float topRightRadius, float bottomRightRadius, float bottomLeftRadius) {
+   public static final BorderRadius ZERO = new BorderRadius(0.0F, 0.0F, 0.0F, 0.0F);
+
+   public BorderRadius(float topLeftRadius, float topRightRadius, float bottomRightRadius, float bottomLeftRadius) {
+      this.topLeftRadius = topLeftRadius;
+      this.topRightRadius = topRightRadius;
+      this.bottomRightRadius = bottomRightRadius;
+      this.bottomLeftRadius = bottomLeftRadius;
+   }
+
+   public static BorderRadius all(float radius) {
+      return new BorderRadius(radius, radius, radius, radius);
+   }
+
+   public static BorderRadius topLeft(float radius) {
+      return new BorderRadius(radius, 0.0F, 0.0F, 0.0F);
+   }
+
+   public static BorderRadius topRight(float radius) {
+      return new BorderRadius(0.0F, radius, 0.0F, 0.0F);
+   }
+
+   public static BorderRadius bottomRight(float radius) {
+      return new BorderRadius(0.0F, 0.0F, radius, 0.0F);
+   }
+
+   public static BorderRadius bottomLeft(float radius) {
+      return new BorderRadius(0.0F, 0.0F, 0.0F, radius);
+   }
+
+   public static BorderRadius top(float leftRadius, float rightRadius) {
+      return new BorderRadius(leftRadius, rightRadius, 0.0F, 0.0F);
+   }
+
+   public static BorderRadius bottom(float leftRadius, float rightRadius) {
+      return new BorderRadius(0.0F, 0.0F, rightRadius, leftRadius);
+   }
+
+   public static BorderRadius left(float topRadius, float bottomRadius) {
+      return new BorderRadius(topRadius, 0.0F, 0.0F, bottomRadius);
+   }
+
+   public static BorderRadius right(float topRadius, float bottomRadius) {
+      return new BorderRadius(0.0F, topRadius, bottomRadius, 0.0F);
+   }
+
+   @NotNull
+   public String toString() {
+      return "BorderRadius{topLeftRadius=" + this.topLeftRadius + ", topRightRadius=" + this.topRightRadius + ", bottomRightRadius=" + this.bottomRightRadius + ", bottomLeftRadius=" + this.bottomLeftRadius + "}";
+   }
+
+   public float topLeftRadius() {
+      return this.topLeftRadius;
+   }
+
+   public float topRightRadius() {
+      return this.topRightRadius;
+   }
+
+   public float bottomRightRadius() {
+      return this.bottomRightRadius;
+   }
+
+   public float bottomLeftRadius() {
+      return this.bottomLeftRadius;
+   }
+}
