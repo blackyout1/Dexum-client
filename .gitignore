@@ -1,10 +1,22 @@
-/.idea/
-/.gradle/
-/build/
-/run/
-/bin/
-/.classpath/
-/.project/
-/.settings/
-/javelinpepe-recode-fabric_client.launch/
-/javelinpepe-recode-fabric_server.launch/
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+
+# IntelliJ IDEA
+.idea/
+*.iml
+out/
+
+# Fabric / Minecraft
+run/
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Конфиденциальные данные (если есть)
+*.accesswidener
