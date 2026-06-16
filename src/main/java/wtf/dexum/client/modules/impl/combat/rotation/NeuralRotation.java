@@ -19,32 +19,56 @@ public class NeuralRotation extends RotationBase {
     private float currentYaw, currentPitch;
     private boolean initialized;
 
+    // ONNX
     private OrtEnvironment env;
     private OrtSession session;
     private float[] meanX, scaleX, meanY, scaleY;
 
-    private static final int SEQ_LEN = 10;
+    private static final int SEQ_LEN = 16;
     private LinkedList<float[]> buffer = new LinkedList<>();
 
     // Гибридный порог
-    private static final float HYBRID_THRESHOLD = 10.0f;
-    // Ограничения для нейросети
-    private static final float MAX_NEURAL_YAW = 4.0f;
-    private static final float MAX_NEURAL_PITCH = 1.8f;
+    private static final float HYBRID_THRESHOLD = 12.0f;
+    // Ограничения нейросети
+    private static final float MAX_NEURAL_YAW = 4.5f;
+    private static final float MAX_NEURAL_PITCH = 2.0f;
+
+    // Инерция мыши
+    private float velocityYaw = 0f;
+    private float velocityPitch = 0f;
+    private static final float ACCEL = 0.35f;
+    private static final float FRICTION = 0.82f;
+    private static final float MAX_SPEED = 10.0f;
 
     // Сглаживание выхода
     private float lastSmoothedYaw = 0f, lastSmoothedPitch = 0f;
-    private static final float SMOOTH_YAW = 0.55f;
-    private static final float SMOOTH_PITCH = 0.2f;
+    private static final float SMOOTH_YAW = 0.5f;
+    private static final float SMOOTH_PITCH = 0.12f;     // экстремально сильная инерция вертикали
 
     // Сглаживание координат цели
     private float smoothDx, smoothDy, smoothDz, smoothDist;
 
+    // Плавающая точка прицела
+    private Vec3d aimOffset = Vec3d.ZERO;
+    private int offsetTimer = 0;
+    private static final double OFFSET_SPEED = 0.07;
+    private static final double OFFSET_FRICTION = 0.83;
+
+    // Овершут
+    private boolean overshooting = false;
+    private float overshootYaw = 0f, overshootPitch = 0f;
+    private int overshootTicks = 0;
+
+    // Отвлечение
+    private int distractionTimer = 0;
+    private boolean distracted = false;
+    private float distractionYaw = 0f, distractionPitch = 0f;
+
     // Человеческие факторы
     private final Random rng = new Random();
     private int reactionDelay = 0;
-    private Vec3d aimOffset = Vec3d.ZERO;
-    private int offsetTimer = 0;
+    private long sessionStart = System.currentTimeMillis();
+    private long lastAttackTime = 0;
 
     public NeuralRotation() {
         try {
@@ -75,28 +99,39 @@ public class NeuralRotation extends RotationBase {
             currentPitch = mc.player.getPitch();
             initialized = true;
         }
-        if (target == null) return;
+        if (target == null) {
+            velocityYaw *= FRICTION;
+            velocityPitch *= FRICTION;
+            distracted = false;
+            return;
+        }
 
+        // 1. Задержка реакции
         if (reactionDelay > 0) {
             reactionDelay--;
             return;
         }
-        if (rng.nextFloat() < 0.06f) return;
+
+        // 2. Пропуск тика
+        if (rng.nextFloat() < 0.07f) return;
 
         Vec3d eye = mc.player.getEyePos();
         Box box = target.getBoundingBox();
 
+        // 3. Плавающая точка прицела (random walk)
         offsetTimer--;
         if (offsetTimer <= 0) {
-            offsetTimer = 5 + rng.nextInt(8);
-            double rX = (rng.nextDouble() - 0.5) * 0.15;
-            double rY = (rng.nextDouble() - 0.5) * 0.15;
-            double rZ = (rng.nextDouble() - 0.5) * 0.15;
+            offsetTimer = 1 + rng.nextInt(3);
+            double ax = (rng.nextDouble() - 0.5) * OFFSET_SPEED;
+            double ay = (rng.nextDouble() - 0.5) * OFFSET_SPEED;
+            double az = (rng.nextDouble() - 0.5) * OFFSET_SPEED;
+            aimOffset = aimOffset.add(ax, ay, az);
             aimOffset = new Vec3d(
-                    MathHelper.clamp(rX, box.minX - box.getCenter().x, box.maxX - box.getCenter().x),
-                    MathHelper.clamp(rY, box.minY - box.getCenter().y, box.maxY - box.getCenter().y),
-                    MathHelper.clamp(rZ, box.minZ - box.getCenter().z, box.maxZ - box.getCenter().z)
+                    MathHelper.clamp(aimOffset.x, box.minX - box.getCenter().x, box.maxX - box.getCenter().x),
+                    MathHelper.clamp(aimOffset.y, box.minY - box.getCenter().y, box.maxY - box.getCenter().y),
+                    MathHelper.clamp(aimOffset.z, box.minZ - box.getCenter().z, box.maxZ - box.getCenter().z)
             );
+            aimOffset = aimOffset.multiply(OFFSET_FRICTION);
         }
 
         Vec3d center = box.getCenter().add(aimOffset);
@@ -105,7 +140,8 @@ public class NeuralRotation extends RotationBase {
         float dz = (float)(center.z - eye.z);
         float dist = (float) Math.sqrt(dx*dx + dy*dy + dz*dz);
 
-        float alpha = 0.3f;
+        // 4. Сильное сглаживание координат цели
+        float alpha = 0.25f;
         smoothDx = smoothDx * (1 - alpha) + dx * alpha;
         smoothDy = smoothDy * (1 - alpha) + dy * alpha;
         smoothDz = smoothDz * (1 - alpha) + dz * alpha;
@@ -117,37 +153,82 @@ public class NeuralRotation extends RotationBase {
         idealYaw = MathHelper.wrapDegrees(idealYaw);
         idealPitch = MathHelper.clamp(idealPitch, -90.0F, 90.0F);
 
+        // 5. Овершут
+        if (overshooting) {
+            idealYaw += overshootYaw;
+            idealPitch += overshootPitch;
+            overshootTicks--;
+            if (overshootTicks <= 0) overshooting = false;
+        }
+
+        // 6. Отвлечение
+        long now = System.currentTimeMillis();
+        boolean targetMoving = target.getVelocity().lengthSquared() > 0.01;
+        boolean recentlyAttacked = (now - lastAttackTime) < 1500;
+        if (!targetMoving && !recentlyAttacked) {
+            distractionTimer++;
+            if (distractionTimer > 25) {
+                distracted = true;
+                distractionYaw = (rng.nextFloat() - 0.5f) * 18.0f;
+                distractionPitch = (rng.nextFloat() - 0.5f) * 6.0f;
+            }
+        } else {
+            distractionTimer = 0;
+            distracted = false;
+        }
+        if (distracted) {
+            idealYaw += distractionYaw;
+            idealPitch += distractionPitch;
+        }
+
         float errorYaw = MathHelper.wrapDegrees(idealYaw - currentYaw);
         float errorPitch = idealPitch - currentPitch;
         float totalError = (float) Math.sqrt(errorYaw*errorYaw + errorPitch*errorPitch);
 
+        // 7. Усталость
+        long sessionDuration = (System.currentTimeMillis() - sessionStart) / 1000;
+        float fatigue = 1.0f - Math.min(0.25f, sessionDuration * 0.00015f);
+
         float deltaYaw = 0, deltaPitch = 0;
 
         if (totalError > HYBRID_THRESHOLD) {
-            float speed = 5.0f + totalError * 0.25f;
+            // Алгоритмический доворот с инерцией
+            float speed = (6.0f + totalError * 0.3f) * fatigue;
             speed *= 0.85f + rng.nextFloat() * 0.3f;
-            float maxYaw = Math.min(speed, 12.0f);
-            float maxPitch = Math.min(speed * 0.5f, 4.0f);
-            float scaleYaw = Math.min(1.0f, maxYaw / Math.max(Math.abs(errorYaw), 0.01f));
-            float scalePitch = Math.min(1.0f, maxPitch / Math.max(Math.abs(errorPitch), 0.01f));
-            deltaYaw = errorYaw * scaleYaw;
-            deltaPitch = errorPitch * scalePitch;
+            float targetSpeedYaw = Math.min(speed, MAX_SPEED);
+            float targetSpeedPitch = Math.min(speed * 0.5f, 5.0f);
+
+            velocityYaw += (targetSpeedYaw - velocityYaw) * ACCEL;
+            velocityPitch += (targetSpeedPitch - velocityPitch) * ACCEL;
+            velocityYaw = MathHelper.clamp(velocityYaw, -MAX_SPEED, MAX_SPEED);
+            velocityPitch = MathHelper.clamp(velocityPitch, -MAX_SPEED * 0.5f, MAX_SPEED * 0.5f);
+
+            deltaYaw = Math.signum(errorYaw) * velocityYaw;
+            deltaPitch = Math.signum(errorPitch) * velocityPitch;
         } else if (session != null) {
+            // Нейросеть
             float[] neural = getNeuralDeltas(smoothDx, smoothDy, smoothDz, smoothDist);
             float neuralYaw = MathHelper.clamp(neural[0], -MAX_NEURAL_YAW, MAX_NEURAL_YAW);
             float neuralPitch = MathHelper.clamp(neural[1], -MAX_NEURAL_PITCH, MAX_NEURAL_PITCH);
-            deltaYaw = neuralYaw + errorYaw * 0.03f;
-            deltaPitch = neuralPitch + errorPitch * 0.01f;
+            deltaYaw = neuralYaw + errorYaw * 0.04f;
+            deltaPitch = neuralPitch + errorPitch * 0.02f;
         } else {
-            deltaYaw = errorYaw * 0.5f;
-            deltaPitch = errorPitch * 0.5f;
+            deltaYaw = errorYaw * 0.4f;
+            deltaPitch = errorPitch * 0.4f;
         }
 
-        deltaYaw += rng.nextGaussian() * 0.15;
-        deltaPitch += rng.nextGaussian() * 0.08;
+        // 8. Вертикальная стабилизация
+        if (Math.abs(errorPitch) < 1.2f) {
+            deltaPitch = 0;
+        } else {
+            deltaPitch *= 0.25f;
+        }
 
-        if (Math.abs(errorPitch) < 0.5f) deltaPitch *= 0.2f;
+        // 9. Многослойный шум
+        deltaYaw += rng.nextGaussian() * 0.3f;
+        deltaPitch += rng.nextGaussian() * 0.15f;
 
+        // 10. Экспоненциальное сглаживание
         deltaYaw = lastSmoothedYaw * (1 - SMOOTH_YAW) + deltaYaw * SMOOTH_YAW;
         deltaPitch = lastSmoothedPitch * (1 - SMOOTH_PITCH) + deltaPitch * SMOOTH_PITCH;
         lastSmoothedYaw = deltaYaw;
@@ -164,6 +245,11 @@ public class NeuralRotation extends RotationBase {
         float newYaw = currentYaw + mX * gcd;
         float newPitch = MathHelper.clamp(currentPitch + mY * gcd, -90.0F, 90.0F);
 
+        // 11. Финальная рандомизация точки попадания
+        newYaw += rng.nextGaussian() * 0.5f;
+        newPitch += rng.nextGaussian() * 0.25f;
+        newPitch = MathHelper.clamp(newPitch, -90.0F, 90.0F);
+
         Rotation finalRot = new Rotation(newYaw, newPitch);
         float visualSpeed = 25.0f + totalError * 0.5f;
         RotationComponent.update(finalRot, visualSpeed, visualSpeed, visualSpeed, visualSpeed, 0, 1, elytraVisual);
@@ -172,6 +258,14 @@ public class NeuralRotation extends RotationBase {
         currentPitch = newPitch;
         lastYaw = newYaw;
         lastPitch = newPitch;
+
+        // 12. Запуск овершута
+        if (!overshooting && totalError < 6.0f && rng.nextFloat() < 0.05f) {
+            overshooting = true;
+            overshootYaw = (rng.nextFloat() - 0.5f) * 8.0f;
+            overshootPitch = (rng.nextFloat() - 0.5f) * 4.0f;
+            overshootTicks = 2 + rng.nextInt(4);
+        }
     }
 
     private float[] getNeuralDeltas(float dx, float dy, float dz, float dist) {
@@ -209,8 +303,20 @@ public class NeuralRotation extends RotationBase {
         return new float[]{0, 0};
     }
 
+    public void onAttack() {
+        lastAttackTime = System.currentTimeMillis();
+        distracted = false;
+        distractionTimer = 0;
+    }
+
     public void onTargetChange() {
-        reactionDelay = 2 + rng.nextInt(4);
+        reactionDelay = 2 + rng.nextInt(5);
+        sessionStart = System.currentTimeMillis();
+        overshooting = false;
+        distracted = false;
+        distractionTimer = 0;
+        velocityYaw = 0;
+        velocityPitch = 0;
     }
 
     @Override
@@ -225,5 +331,10 @@ public class NeuralRotation extends RotationBase {
         lastSmoothedPitch = 0;
         smoothDx = smoothDy = smoothDz = smoothDist = 0;
         reactionDelay = 0;
+        aimOffset = Vec3d.ZERO;
+        distracted = false;
+        distractionTimer = 0;
+        velocityYaw = 0;
+        velocityPitch = 0;
     }
 }

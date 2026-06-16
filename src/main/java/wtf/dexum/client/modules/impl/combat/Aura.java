@@ -54,6 +54,7 @@ import wtf.dexum.utility.game.player.rotation.RotationUtil;
 import wtf.dexum.utility.math.MultipointUtils;
 import wtf.dexum.utility.math.Timer;
 import wtf.dexum.utility.predict.PredictUtils;
+import wtf.dexum.utility.component.RotationComponent;
 
 @ModuleAnnotation(
         name = "AttackAura",
@@ -66,7 +67,6 @@ public final class Aura extends Module {
     public final ModeSetting rotationMode = new ModeSetting("Ротация", new String[0]);
     private final MultiBooleanSetting targetPriority = MultiBooleanSetting.create("Приоритет", List.of("Здоровье", "Дистанция", "Зрение"));
     private final BooleanSetting predictOnElytra = new BooleanSetting("Перегонять противника", true);
-
     private final ModeSetting predictionType = new ModeSetting("Перегон по", () -> this.predictOnElytra.isEnabled(), "По тикам", "По смещению хитбокса");
 
     private final ModeSetting.Value modeVanilla;
@@ -104,6 +104,7 @@ public final class Aura extends Module {
     private final BooleanSetting visualizePrediction = new BooleanSetting("Визуализация предсказания", true);
     private final BooleanSetting keepTarget;
     private final BooleanSetting sprintReset;
+
     private LivingEntity target;
     private Vec3d lastPredictedPoint;
     private final Timer hurtTimer;
@@ -122,6 +123,8 @@ public final class Aura extends Module {
     private float visualLookPitch;
     private boolean visualLookInitialized;
     private boolean visualBackTurnEngaged;
+
+    private final NumberSetting fov = new NumberSetting("FOV", 180.0F, 5.0F, 360.0F, 1.0F);
 
     private Aura() {
         this.modeVanilla = new ModeSetting.Value(this.rotationMode, "Vanilla");
@@ -163,9 +166,7 @@ public final class Aura extends Module {
         int slotHotbar = PlayerInventoryUtil.find((List)List.of(Items.WOODEN_AXE, Items.STONE_AXE, Items.IRON_AXE, Items.GOLDEN_AXE, Items.DIAMOND_AXE, Items.NETHERITE_AXE), 0, 8);
         int slotInventory = PlayerInventoryUtil.find((List)List.of(Items.WOODEN_AXE, Items.STONE_AXE, Items.IRON_AXE, Items.GOLDEN_AXE, Items.DIAMOND_AXE, Items.NETHERITE_AXE), 8, 35);
 
-        if (this.shouldPrepareSprintReset()) {
-            return;
-        }
+        if (this.shouldPrepareSprintReset()) return;
 
         if (slotHotbar != -1 && this.shieldBreak.isEnabled() && this.target.isBlocking()) {
             if (this.legitSwap.isEnabled()) {
@@ -174,7 +175,6 @@ public final class Aura extends Module {
             } else {
                 mc.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(slotHotbar));
             }
-
             wasSwapped = true;
         }
 
@@ -189,14 +189,11 @@ public final class Aura extends Module {
                 mc.getNetworkHandler().sendPacket(new CloseHandledScreenC2SPacket(0));
                 mc.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(slotHotbar));
             }
-
             wasSwappedInventory = true;
         }
 
         mc.interactionManager.attackEntity(mc.player, this.target);
-        if (this.doubleAttack.isEnabled()) {
-            mc.interactionManager.attackEntity(mc.player, this.target);
-        }
+        if (this.doubleAttack.isEnabled()) mc.interactionManager.attackEntity(mc.player, this.target);
         mc.player.swingHand(Hand.MAIN_HAND);
         this.postAttackTicks = 7;
         this.resetSprintResetState();
@@ -236,51 +233,43 @@ public final class Aura extends Module {
     public void onTick(EventTick e) {
         if (mc.player == null || mc.world == null) return;
 
-        if (this.sprintResetDone) {
-            this.sprintResetTicks++;
-        }
+        if (this.sprintResetDone) this.sprintResetTicks++;
 
         LivingEntity newTarget = this.updateTarget();
         if (this.keepTarget.isEnabled() && this.target != null && this.isValid(this.target)) {
-
+            // держим цель
         } else if (newTarget != null) {
             this.target = newTarget;
             this.targetLostTicks = 0;
             rotNeural.onTargetChange();
         } else if (this.target != null && !this.isValid(this.target)) {
             this.targetLostTicks++;
-            if (this.targetLostTicks > 5) {
-                this.target = null;
-            }
+            if (this.targetLostTicks > 5) this.target = null;
         }
 
         if (this.target != null) {
             if (this.isCanAttack() && this.hurtTimer.finished(458L) && !this.target.isBlocking()) {
-                if (this.shouldPrepareSprintReset()) {
-                    return;
-                }
+                if (this.shouldPrepareSprintReset()) return;
 
                 mc.interactionManager.attackEntity(mc.player, this.target);
                 mc.player.swingHand(Hand.MAIN_HAND);
                 this.postAttackTicks = 7;
                 this.resetSprintResetState();
                 this.hurtTimer.reset();
+
+                rotNeural.onAttack();
             }
         }
 
-        if (!this.isElytraPredictActive()) {
-            this.resetElytraPredictState();
-        }
+        if (!this.isElytraPredictActive()) this.resetElytraPredictState();
     }
 
     @EventTarget
     @Native
     public void onTickMovement(EventTickMovement e) {
-        if (this.target != null) {
-            if (this.target.isBlocking() && this.hurtTimer.finished(200L)) {
-                this.breakShieldAndAttack();
-                this.hurtTimer.reset();
-            }
+        if (this.target != null && this.target.isBlocking() && this.hurtTimer.finished(200L)) {
+            this.breakShieldAndAttack();
+            this.hurtTimer.reset();
         }
     }
 
@@ -306,28 +295,25 @@ public final class Aura extends Module {
                 Vec3d targetVel = this.target.getVelocity();
                 Vec3d playerVel = mc.player.getVelocity();
                 double relativeSpeed = playerVel.subtract(targetVel).horizontalLength();
-                if (relativeSpeed > 1.5) {
-                    adjustedPrediction += (float)(relativeSpeed * 0.3);
-                }
+                if (relativeSpeed > 1.5) adjustedPrediction += (float)(relativeSpeed * 0.3);
 
                 if (this.predictionType.is("По тикам")) {
                     point = PredictUtils.predict(this.target, this.target.getPos(), adjustedPrediction);
                     point = point.add(targetVel.x * pingFactor * 3, targetVel.y * pingFactor, targetVel.z * pingFactor * 3);
                     this.smoothedAimPoint = point;
-                } else {
-                    point = this.calculateHitboxOffsetPoint(eyes, pingFactor, adjustedPrediction, distToTarget);
+                }else {
+                    // Цель потеряна – немедленно сбрасываем управление камерой
+                    this.resetElytraPredictState();
+                    this.lastYaw = mc.player.getYaw();
+                    this.lastPitch = mc.player.getPitch();
                 }
             }
 
             this.lastPredictedPoint = point;
-
             Rotation angle = RotationUtil.fromVec3d(point.subtract(eyes));
 
-            if (useBackVisual) {
-                this.updateVisualLook(point);
-            } else {
-                this.resetVisualBackTurn();
-            }
+            if (useBackVisual) this.updateVisualLook(point);
+            else this.resetVisualBackTurn();
 
             RotationBase currentRot = null;
             if (this.modeVanilla.isSelected()) currentRot = rotVanilla;
@@ -363,22 +349,20 @@ public final class Aura extends Module {
                 this.lastPitch = currentRot.getPitch();
             }
         } else {
+            // Цель потеряна – немедленно сбрасываем управление камерой
             this.resetElytraPredictState();
+            this.lastYaw = mc.player.getYaw();
+            this.lastPitch = mc.player.getPitch();
+            RotationComponent.update(new Rotation(this.lastYaw, this.lastPitch), 360.0F, 360.0F, 360.0F, 360.0F, 0, 2, false);
         }
     }
 
     private boolean isElytraPredictContext() {
-        return mc.player != null
-                && mc.player.isGliding()
-                && this.target != null
-                && this.target instanceof PlayerEntity
-                && this.target.isGliding();
+        return mc.player != null && mc.player.isGliding() && this.target != null && this.target instanceof PlayerEntity && this.target.isGliding();
     }
 
     private boolean isElytraPredictActive() {
-        return this.isEnabled()
-                && this.predictOnElytra.isEnabled()
-                && this.isElytraPredictContext();
+        return this.isEnabled() && this.predictOnElytra.isEnabled() && this.isElytraPredictContext();
     }
 
     private void resetVisualBackTurn() {
@@ -406,11 +390,7 @@ public final class Aura extends Module {
         double relativeSpeed = relativeVel.horizontalLength();
         Vec3d targetDir;
         if (speed >= 0.05) {
-            targetDir = new Vec3d(
-                    this.smoothedTargetVelocity.x,
-                    this.smoothedTargetVelocity.y * 0.42,
-                    this.smoothedTargetVelocity.z
-            ).normalize();
+            targetDir = new Vec3d(this.smoothedTargetVelocity.x, this.smoothedTargetVelocity.y * 0.42, this.smoothedTargetVelocity.z).normalize();
         } else {
             targetDir = Vec3d.fromPolar(this.target.getPitch() * 0.35F, this.target.getYaw()).normalize();
         }
@@ -418,19 +398,11 @@ public final class Aura extends Module {
         double interceptFactor = MathHelper.clamp(distToTarget / Math.max(relativeSpeed + speed, 0.75), 0.35, 2.5);
         double pingStrength = pingFactor * Math.min(speed * 4.5 + relativeSpeed * 1.15, 5.5);
         double baseStrength = this.predict.getCurrent() * (0.92 + Math.min(distToTarget / 14.0, 0.65));
-        double totalStrength = MathHelper.clamp(
-                baseStrength + pingStrength + relativeSpeed * 0.42 + adjustedPrediction * 0.18,
-                1.25,
-                10.0
-        );
+        double totalStrength = MathHelper.clamp(baseStrength + pingStrength + relativeSpeed * 0.42 + adjustedPrediction * 0.18, 1.25, 10.0);
 
-        Vec3d offset = targetDir.multiply(totalStrength);
-        offset = offset.add(relativeVel.multiply(interceptFactor * (0.85 + pingFactor * 1.35)));
-
+        Vec3d offset = targetDir.multiply(totalStrength).add(relativeVel.multiply(interceptFactor * (0.85 + pingFactor * 1.35)));
         double maxOffset = Math.max(distToTarget * 0.58, 2.0);
-        if (offset.length() > maxOffset) {
-            offset = offset.normalize().multiply(maxOffset);
-        }
+        if (offset.length() > maxOffset) offset = offset.normalize().multiply(maxOffset);
 
         Vec3d rawPoint = this.target.getBoundingBox().getCenter().add(offset);
         if (this.smoothedAimPoint == null) {
@@ -448,20 +420,17 @@ public final class Aura extends Module {
 
     private void updateVisualLook(Vec3d aimPoint) {
         if (mc.player == null) return;
-
         Rotation look = RotationUtil.fromVec3d(aimPoint.subtract(mc.player.getEyePos()));
         if (!this.visualLookInitialized) {
             this.visualLookYaw = mc.gameRenderer.getCamera().getYaw();
             this.visualLookPitch = mc.gameRenderer.getCamera().getPitch();
             this.visualLookInitialized = true;
         }
-
         float deltaYaw = MathHelper.wrapDegrees(look.getYaw() - this.visualLookYaw);
         float deltaPitch = look.getPitch() - this.visualLookPitch;
         float maxStep = 28.0F;
         deltaYaw = MathHelper.clamp(deltaYaw, -maxStep, maxStep);
         deltaPitch = MathHelper.clamp(deltaPitch, -maxStep * 0.65F, maxStep * 0.65F);
-
         this.visualLookYaw = MathHelper.wrapDegrees(this.visualLookYaw + deltaYaw);
         this.visualLookPitch = MathHelper.clamp(this.visualLookPitch + deltaPitch, -90.0F, 90.0F);
 
@@ -481,7 +450,6 @@ public final class Aura extends Module {
     private void onCameraRotation(EventRotation event) {
         if (!this.isEnabled() || !this.isElytraPredictActive()) return;
         if (!this.predictionType.is("По смещению хитбокса") || !this.visualBackTurn.isEnabled()) return;
-
         FreeLookComponent.setActive(true);
         event.setYaw(this.visualLookYaw);
         event.setPitch(this.visualLookPitch);
@@ -496,11 +464,8 @@ public final class Aura extends Module {
     }
 
     private boolean isCanAttack() {
-        if (mc.player.getAttackCooldownProgress(0.5F) < 0.9F) {
-            return false;
-        } else if (!AttackUtil.canAttack()) {
-            return false;
-        }
+        if (mc.player.getAttackCooldownProgress(0.5F) < 0.9F) return false;
+        if (!AttackUtil.canAttack()) return false;
 
         if (this.critsOnlyWithSpace.isEnabled() && mc.player.isOnGround()) {
             mc.player.jump();
@@ -509,21 +474,14 @@ public final class Aura extends Module {
 
         if (AirStuck.INSTANCE.isEnabled() && AirStuck.INSTANCE.frozen) {
             double distToActual = mc.player.getEyePos().distanceTo(this.target.getBoundingBox().getCenter());
-            if (distToActual > 6.0) {
-                return false;
-            }
+            if (distToActual > 6.0) return false;
         } else if (this.target instanceof PlayerEntity && this.predictOnElytra.isEnabled() && mc.player.isGliding() && this.target.isGliding()) {
             float pingFactor = this.getPlayerPing() / 1000.0F;
-
             double extraReach = Math.min(pingFactor * mc.player.getVelocity().length() * 2.5, 2.0);
             double maxDist = (double)this.distance.getCurrent() + extraReach;
-
             double distToPredicted = mc.player.getEyePos().distanceTo(this.lastPredictedPoint != null ? this.lastPredictedPoint : this.target.getBoundingBox().getCenter());
             double distToActual = mc.player.getEyePos().distanceTo(this.target.getBoundingBox().getCenter());
-
-            if (distToPredicted > maxDist && distToActual > maxDist) {
-                return false;
-            }
+            if (distToPredicted > maxDist && distToActual > maxDist) return false;
         } else if ((!mc.player.isGliding() || !this.target.isGliding()) && mc.player.getEyePos().distanceTo(MultipointUtils.getNearestPoint(this.target, (double)this.distance.getCurrent())) > (double)this.distance.getCurrent()) {
             return false;
         }
@@ -531,24 +489,30 @@ public final class Aura extends Module {
         if (this.raycastCheck.isEnabled()) {
             return RaytracingUtil.rayTrace(mc.player.getRotationVector(), (double)this.distance.getCurrent(), this.target.getBoundingBox()) || mc.targetedEntity != null;
         }
+
+        // Проверка FOV (только для атаки, камера всегда доворачивается)
+        if (this.target != null) {
+            Rotation rot = Rotation.getRotations(this.target.getBoundingBox().getCenter());
+            float yawDiff = Math.abs(MathHelper.wrapDegrees(rot.getYaw() - mc.player.getYaw()));
+            float pitchDiff = Math.abs(rot.getPitch() - mc.player.getPitch());
+            float maxAngle = fov.getCurrent() / 2.0f;
+            if (yawDiff > maxAngle || pitchDiff > maxAngle) {
+                return false;
+            }
+        }
+
         return true;
     }
 
     private LivingEntity updateTarget() {
         List<LivingEntity> targets = new ArrayList<>();
-
         for (PlayerEntity player : mc.world.getPlayers()) {
-            if (player instanceof LivingEntity living && this.isValid(living)) {
-                targets.add(living);
-            }
+            if (player instanceof LivingEntity living && this.isValid(living)) targets.add(living);
         }
-
         try {
             for (Entity entity : mc.world.getEntities()) {
                 if (entity instanceof LivingEntity living && !(entity instanceof PlayerEntity)) {
-                    if (this.isValid(living)) {
-                        targets.add(living);
-                    }
+                    if (this.isValid(living)) targets.add(living);
                 }
             }
         } catch (Exception ignored) {}
@@ -556,75 +520,47 @@ public final class Aura extends Module {
         if (!targets.isEmpty() && this.isEnabled()) {
             targets.sort(Comparator.comparingDouble((entityx) -> {
                 double score = 0;
-                if (targetPriority.isEnable("Здоровье")) {
-                    score += ((LivingEntity)entityx).getHealth();
-                }
-                if (targetPriority.isEnable("Дистанция")) {
-                    score += mc.player.squaredDistanceTo(entityx) * 0.1;
-                }
+                if (targetPriority.isEnable("Здоровье")) score += ((LivingEntity)entityx).getHealth();
+                if (targetPriority.isEnable("Дистанция")) score += mc.player.squaredDistanceTo(entityx) * 0.1;
                 if (targetPriority.isEnable("Зрение")) {
                     Rotation vec = Rotation.getRotations(entityx.getBoundingBox().getCenter());
-                    double dy = (double)Math.abs(MathHelper.wrapDegrees(vec.getYaw() - mc.player.getYaw()));
-                    double dp = (double)Math.abs(MathHelper.wrapDegrees(vec.getPitch() - mc.player.getPitch()));
+                    double dy = Math.abs(MathHelper.wrapDegrees(vec.getYaw() - mc.player.getYaw()));
+                    double dp = Math.abs(vec.getPitch() - mc.player.getPitch());
                     score += (dy + dp) * 0.5;
                 }
                 return score;
             }));
             return (LivingEntity)targets.get(0);
-        } else {
-            return null;
         }
+        return null;
     }
 
     public boolean isValid(LivingEntity entity) {
-        if (entity == mc.player) {
-            return false;
-        } else if (entity.isAlive() && !(entity.getHealth() <= 0.0F)) {
-            if (mc.player.isAlive() && !(mc.player.getHealth() <= 0.0F)) {
-                if (entity instanceof PlayerEntity) {
-                    PlayerEntity player = (PlayerEntity)entity;
-                    if (!this.targetTypeSetting.isEnable("Игроков")) {
-                        return false;
-                    }
+        if (entity == mc.player) return false;
+        if (!entity.isAlive() || entity.getHealth() <= 0.0F) return false;
+        if (!mc.player.isAlive() || mc.player.getHealth() <= 0.0F) return false;
 
-                    if (Dexum.getInstance().getFriendManager().isFriend(entity.getName().getString())) {
-                        return false;
-                    }
-
-                    if (AntiBot.INSTANCE.isBot(player)) {
-                        return false;
-                    }
-                }
-
-                if (!(entity instanceof PassiveEntity) && !(entity instanceof FishEntity) || this.targetTypeSetting.isEnable("Животных") && !Dexum.getInstance().getServerHandler().isPvp()) {
-                    if (!(entity instanceof HostileEntity) && !(entity instanceof AmbientEntity) || this.targetTypeSetting.isEnable("Мобов") && !Dexum.getInstance().getServerHandler().isPvp()) {
-                        if (mc.player.getEyePos().distanceTo(MultipointUtils.getNearestPoint(entity, (double)(this.distance.getCurrent() + this.distanceRotation.getCurrent()))) > (double)(mc.player.isGliding() ? 20.0F : this.distance.getCurrent() + this.distanceRotation.getCurrent())) {
-                            return false;
-                        } else {
-                            return !(entity instanceof ArmorStandEntity);
-                        }
-                    } else {
-                        return false;
-                    }
-                } else {
-                    return false;
-                }
-            } else {
-                return false;
-            }
-        } else {
-            return false;
+        if (entity instanceof PlayerEntity) {
+            if (!this.targetTypeSetting.isEnable("Игроков")) return false;
+            if (Dexum.getInstance().getFriendManager().isFriend(entity.getName().getString())) return false;
+            if (AntiBot.INSTANCE.isBot((PlayerEntity)entity)) return false;
         }
+
+        if (!(entity instanceof PassiveEntity) && !(entity instanceof FishEntity) || this.targetTypeSetting.isEnable("Животных") && !Dexum.getInstance().getServerHandler().isPvp()) {
+            if (!(entity instanceof HostileEntity) && !(entity instanceof AmbientEntity) || this.targetTypeSetting.isEnable("Мобов") && !Dexum.getInstance().getServerHandler().isPvp()) {
+                double maxDist = mc.player.isGliding() ? 20.0F : this.distance.getCurrent() + this.distanceRotation.getCurrent();
+                if (mc.player.getEyePos().distanceTo(MultipointUtils.getNearestPoint(entity, maxDist)) > maxDist) return false;
+                return !(entity instanceof ArmorStandEntity);
+            }
+        }
+        return false;
     }
 
     @EventTarget
     public void onRender3D(EventRender3D event) {
         if (mc.player == null || mc.world == null || target == null) return;
-
         int color = Dexum.getInstance().getThemeManager().getCurrentTheme().getColor().getRGB();
-
         Render3DUtil.drawBox(target.getBoundingBox(), color, 1.0F);
-
         if (this.isElytraPredictActive() && this.visualizePrediction.isEnabled() && this.lastPredictedPoint != null) {
             Box box = new Box(lastPredictedPoint.x - 0.3, lastPredictedPoint.y - 0.3, lastPredictedPoint.z - 0.3, lastPredictedPoint.x + 0.3, lastPredictedPoint.y + 0.3, lastPredictedPoint.z + 0.3);
             Render3DUtil.drawBox(box, color, 1.0F);
@@ -642,34 +578,22 @@ public final class Aura extends Module {
             mc.player.setSprinting(false);
             return;
         }
-
         if (!this.correctionNone.isSelected() && this.target != null) {
-            if (this.correctionFocus.isSelected()) {
-                MovingUtil.fixMovementFocus(eventMoveInput, mc.player.getYaw());
-            } else {
-                MovingUtil.fixMovementFree(eventMoveInput);
-            }
+            if (this.correctionFocus.isSelected()) MovingUtil.fixMovementFocus(eventMoveInput, mc.player.getYaw());
+            else MovingUtil.fixMovementFree(eventMoveInput);
         }
     }
 
     private boolean shouldPrepareSprintReset() {
-        if (!this.sprintReset.isEnabled() || !mc.player.isSprinting() || this.shouldSkipSprintResetInWater()) {
-            return false;
-        }
-
-        if (this.sprintResetDone) {
-            return this.sprintResetTicks < 1;
-        }
-
+        if (!this.sprintReset.isEnabled() || !mc.player.isSprinting() || this.shouldSkipSprintResetInWater()) return false;
+        if (this.sprintResetDone) return this.sprintResetTicks < 1;
         this.needSprintReset = true;
         AutoSprint.pauseForSprintReset(2);
         return true;
     }
 
     private boolean shouldSkipSprintResetInWater() {
-        return mc.player != null
-                && (mc.player.isTouchingWater() || mc.player.isSubmergedInWater())
-                && AutoSprint.INSTANCE.shouldKeepSprintInWater();
+        return mc.player != null && (mc.player.isTouchingWater() || mc.player.isSubmergedInWater()) && AutoSprint.INSTANCE.shouldKeepSprintInWater();
     }
 
     private void resetSprintResetState() {

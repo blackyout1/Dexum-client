@@ -59,15 +59,26 @@ public class WatermarkComponent extends DraggableHudElement {
 
         ColorRGBA bg = ColorRGBA.BLACK;
 
+        // Рисуем кружок и плашку
         DrawUtil.drawRoundedRect(ctx.getMatrices(), x, y, circleSize, circleSize, BorderRadius.all(circleRadius), bg);
         DrawUtil.drawRoundedRect(ctx.getMatrices(), cardX, cardY, cardWidth, cardHeight, BorderRadius.all(4.0F), bg);
 
-        String logo = "8";
-        float logoSize = 13.0F;
-        float logoX = x + (circleSize - Fonts.ICONS.getWidth(logo, logoSize)) / 2.0F + 0.5F;
-        float logoY = y + (circleSize - logoSize) / 1.7F - 0.6F;
-        ctx.drawText(Fonts.ICONS.getFont(logoSize), logo, logoX, logoY, theme.getColor());
+        // ====== БУКВА D В ЦЕНТРЕ КРУЖКА (ЖИРНАЯ, КРУПНАЯ, ТОЧНАЯ ЦЕНТРОВКА) ======
+        String logo = "D";
+        float logoSize = 16.0F;                // размер шрифта
+        float logoWidth = Fonts.BOLD.getWidth(logo, logoSize);
 
+        // Горизонтальное центрирование
+        float logoX = x + (circleSize - logoWidth) / 2.0F;
+
+        // Вертикальное центрирование: подбираем смещение, чтобы буква оказалась ровно по центру
+        float verticalOffset = 3F;          // <-- МЕНЯЙ ЭТО ЗНАЧЕНИЕ, ЕСЛИ БУКВА НЕ ПО ЦЕНТРУ
+        float logoY = y + (circleSize - logoSize) / 2.0F + verticalOffset;
+
+        ctx.drawText(Fonts.BOLD.getFont(logoSize), logo, logoX, logoY, theme.getColor());
+        // ========================================================================
+
+        // Подпись (название клиента и имя игрока)
         float textX = cardX + textOffsetX;
         float iconOffsetLeft = 1.5F;
         ctx.drawText(Fonts.MEDIUM.getFont(8.0F), title, textX - 2.0f, cardY + 5.0F, new ColorRGBA(235, 235, 235, 255));
