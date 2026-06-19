@@ -77,6 +77,7 @@ public final class Aura extends Module {
     private final ModeSetting.Value modeReallyWorld;
     private final ModeSetting.Value modeHVH;
     private final ModeSetting.Value modeNeural;
+    private final ModeSetting.Value modeFunTimeNeural; // [FunTimeNeural]
 
     private final VanillaRotation rotVanilla = new VanillaRotation();
     private final SpookytimeRotation rotFunTime = new SpookytimeRotation();
@@ -86,6 +87,7 @@ public final class Aura extends Module {
     private final ReallyWorldRotation rotReallyWorld = new ReallyWorldRotation();
     private final HVHRotation rotHVH = new HVHRotation();
     private final NeuralRotation rotNeural = new NeuralRotation();
+    private final FunTimeNeuralRotation rotFunTimeNeural = new FunTimeNeuralRotation(); // [FunTimeNeural]
 
     private final ModeSetting correction;
     private final ModeSetting.Value correctionFocus;
@@ -135,6 +137,7 @@ public final class Aura extends Module {
         this.modeReallyWorld = new ModeSetting.Value(this.rotationMode, "ReallyWorld");
         this.modeHVH = new ModeSetting.Value(this.rotationMode, "HVH");
         this.modeNeural = new ModeSetting.Value(this.rotationMode, "Neural");
+        this.modeFunTimeNeural = new ModeSetting.Value(this.rotationMode, "FunTimeNeural"); // [FunTimeNeural]
 
         this.correction = new ModeSetting("Коррекция", new String[0]);
         this.correctionFocus = new ModeSetting.Value(this.correction, "Фокус");
@@ -241,7 +244,8 @@ public final class Aura extends Module {
         } else if (newTarget != null) {
             this.target = newTarget;
             this.targetLostTicks = 0;
-            rotNeural.onTargetChange();
+            // rotNeural.onTargetChange(); // удалён
+            rotFunTimeNeural.onTargetChange(); // [FunTimeNeural]
         } else if (this.target != null && !this.isValid(this.target)) {
             this.targetLostTicks++;
             if (this.targetLostTicks > 5) this.target = null;
@@ -257,7 +261,8 @@ public final class Aura extends Module {
                 this.resetSprintResetState();
                 this.hurtTimer.reset();
 
-                rotNeural.onAttack();
+                // rotNeural.onAttack(); // удалён
+                rotFunTimeNeural.onAttack(); // [FunTimeNeural]
             }
         }
 
@@ -301,8 +306,7 @@ public final class Aura extends Module {
                     point = PredictUtils.predict(this.target, this.target.getPos(), adjustedPrediction);
                     point = point.add(targetVel.x * pingFactor * 3, targetVel.y * pingFactor, targetVel.z * pingFactor * 3);
                     this.smoothedAimPoint = point;
-                }else {
-                    // Цель потеряна – немедленно сбрасываем управление камерой
+                } else {
                     this.resetElytraPredictState();
                     this.lastYaw = mc.player.getYaw();
                     this.lastPitch = mc.player.getPitch();
@@ -324,6 +328,7 @@ public final class Aura extends Module {
             else if (this.modeSloth2.isSelected()) currentRot = rotSloth2;
             else if (this.modeHVH.isSelected()) currentRot = rotHVH;
             else if (this.modeNeural.isSelected()) currentRot = rotNeural;
+            else if (this.modeFunTimeNeural.isSelected()) currentRot = rotFunTimeNeural; // [FunTimeNeural]
 
             if (currentRot != null) {
                 currentRot.setYaw(this.lastYaw);
@@ -341,6 +346,8 @@ public final class Aura extends Module {
                     ((Sloth2Rotation) currentRot).update(this.target, angle, elytraVisual);
                 } else if (currentRot instanceof NeuralRotation) {
                     ((NeuralRotation) currentRot).update(this.target, angle, elytraVisual);
+                } else if (currentRot instanceof FunTimeNeuralRotation) { // [FunTimeNeural]
+                    ((FunTimeNeuralRotation) currentRot).update(this.target, angle, elytraVisual);
                 } else {
                     currentRot.update(angle, elytraVisual);
                 }
@@ -349,7 +356,6 @@ public final class Aura extends Module {
                 this.lastPitch = currentRot.getPitch();
             }
         } else {
-            // Цель потеряна – немедленно сбрасываем управление камерой
             this.resetElytraPredictState();
             this.lastYaw = mc.player.getYaw();
             this.lastPitch = mc.player.getPitch();
@@ -490,7 +496,6 @@ public final class Aura extends Module {
             return RaytracingUtil.rayTrace(mc.player.getRotationVector(), (double)this.distance.getCurrent(), this.target.getBoundingBox()) || mc.targetedEntity != null;
         }
 
-        // Проверка FOV (только для атаки, камера всегда доворачивается)
         if (this.target != null) {
             Rotation rot = Rotation.getRotations(this.target.getBoundingBox().getCenter());
             float yawDiff = Math.abs(MathHelper.wrapDegrees(rot.getYaw() - mc.player.getYaw()));
