@@ -77,7 +77,7 @@ public final class Aura extends Module {
     private final ModeSetting.Value modeReallyWorld;
     private final ModeSetting.Value modeHVH;
     private final ModeSetting.Value modeNeural;
-    private final ModeSetting.Value modeFunTimeNeural; // [FunTimeNeural]
+    private final ModeSetting.Value modeLegit;
 
     private final VanillaRotation rotVanilla = new VanillaRotation();
     private final SpookytimeRotation rotFunTime = new SpookytimeRotation();
@@ -87,7 +87,10 @@ public final class Aura extends Module {
     private final ReallyWorldRotation rotReallyWorld = new ReallyWorldRotation();
     private final HVHRotation rotHVH = new HVHRotation();
     private final NeuralRotation rotNeural = new NeuralRotation();
-    private final FunTimeNeuralRotation rotFunTimeNeural = new FunTimeNeuralRotation(); // [FunTimeNeural]
+    private final LegitRotation rotLegit = new LegitRotation();
+
+    public LegitRotation getRotLegit() { return rotLegit; }
+    public NeuralRotation getRotNeural() { return rotNeural; }
 
     private final ModeSetting correction;
     private final ModeSetting.Value correctionFocus;
@@ -137,7 +140,7 @@ public final class Aura extends Module {
         this.modeReallyWorld = new ModeSetting.Value(this.rotationMode, "ReallyWorld");
         this.modeHVH = new ModeSetting.Value(this.rotationMode, "HVH");
         this.modeNeural = new ModeSetting.Value(this.rotationMode, "Neural");
-        this.modeFunTimeNeural = new ModeSetting.Value(this.rotationMode, "FunTimeNeural"); // [FunTimeNeural]
+        this.modeLegit = new ModeSetting.Value(this.rotationMode, "Legit");
 
         this.correction = new ModeSetting("Коррекция", new String[0]);
         this.correctionFocus = new ModeSetting.Value(this.correction, "Фокус");
@@ -244,15 +247,25 @@ public final class Aura extends Module {
         } else if (newTarget != null) {
             this.target = newTarget;
             this.targetLostTicks = 0;
-            // rotNeural.onTargetChange(); // удалён
-            rotFunTimeNeural.onTargetChange(); // [FunTimeNeural]
+            rotLegit.onTargetChange();
         } else if (this.target != null && !this.isValid(this.target)) {
             this.targetLostTicks++;
             if (this.targetLostTicks > 5) this.target = null;
         }
 
         if (this.target != null) {
-            if (this.isCanAttack() && this.hurtTimer.finished(458L) && !this.target.isBlocking()) {
+            if (this.modeLegit.isSelected()) {
+                if (rotLegit.shouldAttack(this.target) && this.hurtTimer.finished(458L) && !this.target.isBlocking()) {
+                    if (this.shouldPrepareSprintReset()) return;
+
+                    mc.interactionManager.attackEntity(mc.player, this.target);
+                    mc.player.swingHand(Hand.MAIN_HAND);
+                    this.postAttackTicks = 7;
+                    this.resetSprintResetState();
+                    this.hurtTimer.reset();
+                    rotLegit.onAttack();
+                }
+            } else if (this.isCanAttack() && this.hurtTimer.finished(458L) && !this.target.isBlocking()) {
                 if (this.shouldPrepareSprintReset()) return;
 
                 mc.interactionManager.attackEntity(mc.player, this.target);
@@ -260,9 +273,6 @@ public final class Aura extends Module {
                 this.postAttackTicks = 7;
                 this.resetSprintResetState();
                 this.hurtTimer.reset();
-
-                // rotNeural.onAttack(); // удалён
-                rotFunTimeNeural.onAttack(); // [FunTimeNeural]
             }
         }
 
@@ -328,7 +338,7 @@ public final class Aura extends Module {
             else if (this.modeSloth2.isSelected()) currentRot = rotSloth2;
             else if (this.modeHVH.isSelected()) currentRot = rotHVH;
             else if (this.modeNeural.isSelected()) currentRot = rotNeural;
-            else if (this.modeFunTimeNeural.isSelected()) currentRot = rotFunTimeNeural; // [FunTimeNeural]
+            else if (this.modeLegit.isSelected()) currentRot = rotLegit;
 
             if (currentRot != null) {
                 currentRot.setYaw(this.lastYaw);
@@ -346,8 +356,8 @@ public final class Aura extends Module {
                     ((Sloth2Rotation) currentRot).update(this.target, angle, elytraVisual);
                 } else if (currentRot instanceof NeuralRotation) {
                     ((NeuralRotation) currentRot).update(this.target, angle, elytraVisual);
-                } else if (currentRot instanceof FunTimeNeuralRotation) { // [FunTimeNeural]
-                    ((FunTimeNeuralRotation) currentRot).update(this.target, angle, elytraVisual);
+                } else if (currentRot instanceof LegitRotation) {
+                    ((LegitRotation) currentRot).update(this.target, angle, elytraVisual);
                 } else {
                     currentRot.update(angle, elytraVisual);
                 }
@@ -609,6 +619,14 @@ public final class Aura extends Module {
 
     public LivingEntity getTarget() {
         return this.isEnabled() ? this.target : null;
+    }
+
+    public boolean isLegitAimCommit() {
+        if (target == null) return false;
+        float errorYaw = MathHelper.wrapDegrees(rotLegit.getAimYaw() - mc.player.getYaw());
+        float errorPitch = rotLegit.getAimPitch() - mc.player.getPitch();
+        float errorMag = (float)Math.hypot(errorYaw, errorPitch);
+        return errorMag < 3.0f && Math.abs(rotLegit.getErrorDerivative()) < 12f;
     }
 
     public void onEnable() {

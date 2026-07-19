@@ -1,342 +1,194 @@
 package wtf.dexum.client.modules.impl.combat.rotation;
 
-import ai.onnxruntime.*;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import wtf.dexum.client.modules.impl.combat.Aura;
 import wtf.dexum.utility.component.RotationComponent;
 import wtf.dexum.utility.game.player.rotation.Rotation;
 
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.util.*;
+import java.util.Random;
 
 public class FunTimeNeuralRotation extends RotationBase {
 
-    // --- нейросеть ---
-    private OrtEnvironment env;
-    private OrtSession session;
-    private float[] meanX, scaleX, meanY, scaleY;
-    private static final int SEQ_LEN = 16;
-    private final LinkedList<float[]> buffer = new LinkedList<>();
+    private float currentYaw, currentPitch;
+    private boolean initialized = false;
 
-    // --- константы ---
-    private static final float HYBRID_THRESHOLD = 12.0f;
-    private static final float MAX_NEURAL_YAW = 4.5f;
-    private static final float MAX_NEURAL_PITCH = 2.0f;
-    private static final float SMOOTH_YAW = 0.5f;
-    private static final float SMOOTH_PITCH = 0.12f;
-    private static final double OFFSET_SPEED = 0.07;
-    private static final double OFFSET_FRICTION = 0.83;
+    private float velocityYaw = 0f;
+    private float velocityPitch = 0f;
 
-    // --- сглаживание выхода ---
-    private float lastSmoothedYaw = 0f;
-    private float lastSmoothedPitch = 0f;
-
-    // --- сглаживание координат цели ---
-    private float smoothDx, smoothDy, smoothDz, smoothDist;
-    private Vec3d aimOffset = Vec3d.ZERO;
-    private int offsetTimer = 0;
-
-    // --- человеческие факторы ---
-    private boolean overshooting = false;
-    private float overshootYaw = 0f, overshootPitch = 0f;
-    private int overshootTicks = 0;
-    private int distractionTimer = 0;
-    private boolean distracted = false;
-    private float distractionYaw = 0f, distractionPitch = 0f;
     private final Random rng = new Random();
-    private int reactionDelay = 0;
     private long lastAttackTime = 0;
     private LivingEntity lastTarget = null;
 
-    public FunTimeNeuralRotation() {
-        try {
-            env = OrtEnvironment.getEnvironment();
+    private float prevErrorMag = 0f;
+    private float errorDerivative = 0f;
 
-            try (InputStream modelStream = getClass().getResourceAsStream("/assets/dexum/neural/aim_model.onnx")) {
-                if (modelStream == null) throw new IllegalStateException("aim_model.onnx not found");
-                byte[] modelBytes = modelStream.readAllBytes();
-                session = env.createSession(modelBytes, new OrtSession.SessionOptions());
-            }
+    private int reactionDelayTicks = 0;
 
-            try (Reader reader = new InputStreamReader(
-                    Objects.requireNonNull(getClass().getResourceAsStream("/assets/dexum/neural/scalers.json")))) {
-                JsonObject json = JsonParser.parseReader(reader).getAsJsonObject();
-                meanX = toFloatArray(json.getAsJsonArray("meanX"));
-                scaleX = toFloatArray(json.getAsJsonArray("scaleX"));
-                meanY = toFloatArray(json.getAsJsonArray("meanY"));
-                scaleY = toFloatArray(json.getAsJsonArray("scaleY"));
-            }
-        } catch (Exception e) {
-            System.err.println("[FunTimeNeural] модель не загружена, использую упрощённый доворот.");
-        }
-    }
+    private float fatigue = 0f;
+    private long combatStartTime = 0;
 
-    private float[] toFloatArray(JsonArray arr) {
-        float[] res = new float[arr.size()];
-        for (int i = 0; i < arr.size(); i++) res[i] = arr.get(i).getAsFloat();
-        return res;
-    }
+    private double tremorTime = 0;
+    private final float tremorFreqYaw = 9.3f + rng.nextFloat() * 2.5f;
+    private final float tremorFreqPitch = 8.1f + rng.nextFloat() * 2.2f;
+    private final float tremorPhaseYaw = rng.nextFloat() * 6.2832f;
+    private final float tremorPhasePitch = rng.nextFloat() * 6.2832f;
 
-    // Вызывается из Aura при пропадании цели
+    public FunTimeNeuralRotation() {}
+
+
     public void update(Rotation targetAngle, boolean elytraVisual) {
-        resetNeuralState();
         if (mc.player != null) {
-            setYaw(mc.player.getYaw());
-            setPitch(mc.player.getPitch());
+            currentYaw = mc.player.getYaw();
+            currentPitch = mc.player.getPitch();
         }
+        initialized = true;
+        // Сбрасываем скорость, чтобы не накапливалась без цели
+        velocityYaw = velocityPitch = 0f;
+        fatigue = 0f;
+        combatStartTime = 0;
     }
 
 
     public void update(LivingEntity target, Rotation targetAngle, boolean elytraVisual) {
+        if (!initialized) update(null, false);
         if (target == null || !Aura.INSTANCE.isEnabled()) {
-            handleNoTarget(elytraVisual);
+            resetToVanilla(elytraVisual);
             return;
         }
 
         if (target != lastTarget) {
-            lastTarget = target;
             onTargetChange();
+            lastTarget = target;
         }
 
-        if (reactionDelay > 0) {
-            reactionDelay--;
+        if (reactionDelayTicks > 0) {
+            reactionDelayTicks--;
             return;
         }
 
-        if (rng.nextFloat() < 0.07f) return;
-
         Vec3d eye = mc.player.getEyePos();
-        Box box = target.getBoundingBox();
-
-        // плавающая точка прицела
-        offsetTimer--;
-        if (offsetTimer <= 0) {
-            offsetTimer = 1 + rng.nextInt(3);
-            double ax = (rng.nextDouble() - 0.5) * OFFSET_SPEED;
-            double ay = (rng.nextDouble() - 0.5) * OFFSET_SPEED;
-            double az = (rng.nextDouble() - 0.5) * OFFSET_SPEED;
-            aimOffset = aimOffset.add(ax, ay, az);
-            aimOffset = new Vec3d(
-                    MathHelper.clamp(aimOffset.x, box.minX - box.getCenter().x, box.maxX - box.getCenter().x),
-                    MathHelper.clamp(aimOffset.y, box.minY - box.getCenter().y, box.maxY - box.getCenter().y),
-                    MathHelper.clamp(aimOffset.z, box.minZ - box.getCenter().z, box.maxZ - box.getCenter().z)
-            );
-            aimOffset = aimOffset.multiply(OFFSET_FRICTION);
-        }
-
-        Vec3d center = box.getCenter().add(aimOffset);
+        Vec3d center = target.getBoundingBox().getCenter();
         float dx = (float)(center.x - eye.x);
         float dy = (float)(center.y - eye.y);
         float dz = (float)(center.z - eye.z);
-        float dist = (float) Math.sqrt(dx*dx + dy*dy + dz*dz);
-
-        float alpha = 0.25f;
-        smoothDx = smoothDx * (1 - alpha) + dx * alpha;
-        smoothDy = smoothDy * (1 - alpha) + dy * alpha;
-        smoothDz = smoothDz * (1 - alpha) + dz * alpha;
-        smoothDist = smoothDist * (1 - alpha) + dist * alpha;
-
-        float idealYaw = (float) Math.toDegrees(Math.atan2(smoothDz, smoothDx)) - 90.0F;
-        float idealPitch = (float) -Math.toDegrees(Math.atan2(smoothDy,
-                Math.sqrt(smoothDx*smoothDx + smoothDz*smoothDz)));
-        idealYaw = MathHelper.wrapDegrees(idealYaw);
-        idealPitch = MathHelper.clamp(idealPitch, -90.0F, 90.0F);
-
-        if (overshooting) {
-            idealYaw += overshootYaw;
-            idealPitch += overshootPitch;
-            overshootTicks--;
-            if (overshootTicks <= 0) overshooting = false;
-        }
+        float idealYaw = MathHelper.wrapDegrees((float)Math.toDegrees(Math.atan2(dz, dx)) - 90);
+        float idealPitch = (float)-Math.toDegrees(Math.atan2(dy, Math.sqrt(dx*dx + dz*dz)));
 
         long now = System.currentTimeMillis();
-        boolean targetMoving = target.getVelocity().lengthSquared() > 0.01;
-        boolean recentlyAttacked = (now - lastAttackTime) < 1500;
-        if (!targetMoving && !recentlyAttacked) {
-            distractionTimer++;
-            if (distractionTimer > 25) {
-                distracted = true;
-                distractionYaw = (rng.nextFloat() - 0.5f) * 18.0f;
-                distractionPitch = (rng.nextFloat() - 0.5f) * 6.0f;
-            }
-        } else {
-            distractionTimer = 0;
-            distracted = false;
-        }
-        if (distracted) {
-            idealYaw += distractionYaw;
-            idealPitch += distractionPitch;
-        }
+        if (combatStartTime == 0) combatStartTime = now;
+        float fightDuration = (now - combatStartTime) / 1000f;
+        fatigue = Math.min(1f, fightDuration / 15f);
+        if (now - lastAttackTime > 5000) fatigue = Math.max(0, fatigue - 0.02f);
 
-        float currentYaw = getYaw();
-        float currentPitch = getPitch();
+        boolean lowHP = mc.player.getHealth() < 4f;
+        boolean underPressure = (now - lastAttackTime < 2000);
+        float stress = (lowHP || underPressure) ? 1f : 0f;
+
+        float k = 2.8f - 0.7f * fatigue + 1.2f * stress;
+        float b = 1.8f + 0.5f * fatigue;
+
         float errorYaw = MathHelper.wrapDegrees(idealYaw - currentYaw);
         float errorPitch = idealPitch - currentPitch;
-        float totalError = (float) Math.sqrt(errorYaw*errorYaw + errorPitch*errorPitch);
+        float errorMag = (float)Math.sqrt(errorYaw*errorYaw + errorPitch*errorPitch);
 
-        float deltaYaw, deltaPitch;
-
-        // гибридная логика
-        if (totalError > HYBRID_THRESHOLD) {
-            // снап-доворот FunTime
-            float capYaw = (Math.abs(errorYaw) / totalError) * 130f;
-            float capPitch = (Math.abs(errorPitch) / totalError) * 130f;
-            float snapYaw = currentYaw + MathHelper.clamp(errorYaw, -capYaw, capYaw);
-            float snapPitch = currentPitch + MathHelper.clamp(errorPitch, -capPitch, capPitch);
-            deltaYaw = (snapYaw - currentYaw) * 0.85f;
-            deltaPitch = (snapPitch - currentPitch) * 0.85f;
-        } else if (session != null) {
-            // нейросетевой доворот
-            float[] neural = getNeuralDeltas(smoothDx, smoothDy, smoothDz, smoothDist);
-            float neuralYaw = MathHelper.clamp(neural[0], -MAX_NEURAL_YAW, MAX_NEURAL_YAW);
-            float neuralPitch = MathHelper.clamp(neural[1], -MAX_NEURAL_PITCH, MAX_NEURAL_PITCH);
-            deltaYaw = neuralYaw + errorYaw * 0.04f;
-            deltaPitch = neuralPitch + errorPitch * 0.02f;
-        } else {
-            deltaYaw = errorYaw * 0.4f;
-            deltaPitch = errorPitch * 0.4f;
+        // Мёртвая зона + дополнительное торможение при малой ошибке
+        if (errorMag < 0.8f && !(stress > 0.5f)) {
+            // Сильно тормозим скорость, чтобы избежать раскачки
+            velocityYaw *= 0.4f;
+            velocityPitch *= 0.4f;
+            // Микро‑дрейф только если скорость уже почти ноль
+            if (Math.abs(velocityYaw) < 0.5f && Math.abs(velocityPitch) < 0.5f) {
+                errorYaw += (rng.nextFloat() - 0.5f) * 0.3f;
+                errorPitch += (rng.nextFloat() - 0.5f) * 0.15f;
+            }
         }
 
-        if (Math.abs(errorPitch) < 1.2f) {
-            deltaPitch = 0;
-        } else {
-            deltaPitch *= 0.25f;
+        float dt = 0.05f;
+        float accelYaw = k * errorYaw - b * velocityYaw;
+        float accelPitch = k * errorPitch - b * velocityPitch;
+
+        velocityYaw += accelYaw * dt;
+        velocityPitch += accelPitch * dt;
+
+        // Жёсткое ограничение скорости
+        velocityYaw = MathHelper.clamp(velocityYaw, -15f, 15f);
+        velocityPitch = MathHelper.clamp(velocityPitch, -10f, 10f);
+
+        // Максимальный поворот за кадр
+        float maxStep = 12f;
+        float stepYaw = MathHelper.clamp(velocityYaw * dt, -maxStep, maxStep);
+        float stepPitch = MathHelper.clamp(velocityPitch * dt, -maxStep, maxStep);
+
+        float newYaw = currentYaw + stepYaw;
+        float newPitch = currentPitch + stepPitch;
+
+        // Тремор (лёгкий)
+        tremorTime += dt;
+        float tremorAmp = 0.06f * (1f + fatigue); // уменьшил до 0.06
+        newYaw += tremorAmp * (float)Math.sin(2 * Math.PI * tremorFreqYaw * tremorTime + tremorPhaseYaw);
+        newPitch += tremorAmp * (float)Math.sin(2 * Math.PI * tremorFreqPitch * tremorTime + tremorPhasePitch);
+
+        newPitch = MathHelper.clamp(newPitch, -90, 90);
+
+        // Стресс‑промах
+        if (stress > 0.5f && rng.nextFloat() < 0.15f) {
+            Vec3d vel = target.getVelocity();
+            if (vel.lengthSquared() > 0.01) {
+                Vec3d offset = vel.normalize().multiply(3 + rng.nextFloat() * 2);
+                float missYaw = (float)Math.toDegrees(Math.atan2(offset.z, offset.x));
+                newYaw += missYaw * 0.3f;
+            }
         }
-
-        deltaYaw += (float) rng.nextGaussian() * 0.3f;
-        deltaPitch += (float) rng.nextGaussian() * 0.15f;
-
-        deltaYaw = lastSmoothedYaw * (1 - SMOOTH_YAW) + deltaYaw * SMOOTH_YAW;
-        deltaPitch = lastSmoothedPitch * (1 - SMOOTH_PITCH) + deltaPitch * SMOOTH_PITCH;
-        lastSmoothedYaw = deltaYaw;
-        lastSmoothedPitch = deltaPitch;
-
-        deltaYaw = MathHelper.clamp(deltaYaw, -12.0f, 12.0f);
-        deltaPitch = MathHelper.clamp(deltaPitch, -4.0f, 4.0f);
-
-        float newYaw = currentYaw + deltaYaw;
-        float newPitch = MathHelper.clamp(currentPitch + deltaPitch, -90.0F, 90.0F);
-
-        // FunTime-флик УБРАН (раньше здесь был сброс в -90°)
 
         float gcd = Rotation.gcd();
-        int mX = Math.round((newYaw - currentYaw) / gcd);
-        int mY = Math.round((newPitch - currentPitch) / gcd);
-        newYaw = currentYaw + mX * gcd;
-        newPitch = currentPitch + mY * gcd;
+        newYaw = currentYaw + Math.round((newYaw - currentYaw) / gcd) * gcd;
 
-        newYaw += (float) rng.nextGaussian() * 0.5f;
-        newPitch += (float) rng.nextGaussian() * 0.25f;
-        newPitch = MathHelper.clamp(newPitch, -90.0F, 90.0F);
+        RotationComponent.update(new Rotation(newYaw, newPitch), 27f, 27f, 27f, 27f, 0, 1, elytraVisual);
+        currentYaw = newYaw;
+        currentPitch = newPitch;
 
-        Rotation finalRot = new Rotation(newYaw, newPitch);
-        float visualSpeed = 25.0f + totalError * 0.5f;
-        RotationComponent.update(finalRot, visualSpeed, visualSpeed, visualSpeed, visualSpeed, 0, 1, elytraVisual);
-
-        setYaw(newYaw);
-        setPitch(newPitch);
-
-        if (!overshooting && totalError < 6.0f && rng.nextFloat() < 0.05f) {
-            overshooting = true;
-            overshootYaw = (rng.nextFloat() - 0.5f) * 8.0f;
-            overshootPitch = (rng.nextFloat() - 0.5f) * 4.0f;
-            overshootTicks = 2 + rng.nextInt(4);
-        }
+        errorDerivative = (errorMag - prevErrorMag) / dt;
+        prevErrorMag = errorMag;
     }
 
-    private void handleNoTarget(boolean elytraVisual) {
-        // Простой возврат к ванильным углам, без дрожания
+    public boolean shouldAttack(LivingEntity target) {
+        if (target == null) return false;
+        Rotation ideal = Rotation.getRotations(target.getBoundingBox().getCenter());
+        float errorMag = (float)Math.sqrt(
+                Math.pow(MathHelper.wrapDegrees(ideal.getYaw() - currentYaw), 2) +
+                        Math.pow(ideal.getPitch() - currentPitch, 2)
+        );
+        return errorMag < 10f;
+    }
+
+    private void resetToVanilla(boolean elytraVisual) {
         if (mc.player == null) return;
-
-        float currentYaw = getYaw();
-        float currentPitch = getPitch();
-        float vanillaYaw = mc.player.getYaw();
-        float vanillaPitch = mc.player.getPitch();
-
-        float deltaYaw = MathHelper.wrapDegrees(vanillaYaw - currentYaw);
-        float deltaPitch = vanillaPitch - currentPitch;
-        float totalBack = (float) Math.hypot(deltaYaw, deltaPitch);
-        totalBack = Math.max(totalBack, 0.0001f);
-        float returnSpeed = MathHelper.clamp(totalBack / 45f, 0.08f, 0.65f);
-        float yawReturn = deltaYaw * returnSpeed;
-        float pitchReturn = deltaPitch * returnSpeed;
-
-        float newYaw = currentYaw + yawReturn;
-        float newPitch = MathHelper.clamp(currentPitch + pitchReturn, -90f, 90f);
-
-        setYaw(newYaw);
-        setPitch(newPitch);
-
-        Rotation finalRot = new Rotation(newYaw, newPitch);
-        RotationComponent.update(finalRot, 360.0F, 360.0F, 360.0F, 360.0F, 0, 2, elytraVisual);
-    }
-
-    private float[] getNeuralDeltas(float dx, float dy, float dz, float dist) {
-        if (session == null || mc.player == null) return new float[]{0, 0};
-        float[] feat = new float[6];
-        feat[0] = MathHelper.wrapDegrees(mc.player.getYaw());
-        feat[1] = mc.player.getPitch();
-        feat[2] = dx;
-        feat[3] = dy;
-        feat[4] = dz;
-        feat[5] = dist;
-
-        for (int i = 0; i < feat.length; i++)
-            feat[i] = (feat[i] - meanX[i]) / scaleX[i];
-
-        buffer.addLast(feat);
-        if (buffer.size() > SEQ_LEN) buffer.removeFirst();
-        if (buffer.size() < SEQ_LEN) return new float[]{0, 0};
-
-        float[][][] input = new float[1][SEQ_LEN][6];
-        int idx = 0;
-        for (float[] f : buffer) input[0][idx++] = f;
-
-        try (var tensor = OnnxTensor.createTensor(env, input);
-             var output = session.run(Collections.singletonMap("input", tensor))) {
-            var optionalValue = output.get("output");
-            if (optionalValue.isPresent()) {
-                float[][] raw = (float[][]) optionalValue.get().getValue();
-                float deltaYaw = raw[0][0] * scaleY[0] + meanY[0];
-                float deltaPitch = raw[0][1] * scaleY[1] + meanY[1];
-                return new float[]{deltaYaw, deltaPitch};
-            }
-        } catch (Exception e) {
-            System.err.println("[FunTimeNeural] ошибка инференса нейросети");
-        }
-        return new float[]{0, 0};
-    }
-
-    private void resetNeuralState() {
-        buffer.clear();
-        lastSmoothedYaw = 0;
-        lastSmoothedPitch = 0;
-        smoothDx = smoothDy = smoothDz = smoothDist = 0;
-        aimOffset = Vec3d.ZERO;
-        reactionDelay = 0;
-        distracted = false;
-        distractionTimer = 0;
-        overshooting = false;
+        // Плавный возврат к ванильным углам
+        currentYaw = MathHelper.lerp(0.55f, currentYaw, mc.player.getYaw());
+        currentPitch = MathHelper.lerp(0.55f, currentPitch, mc.player.getPitch());
+        // Сброс скоростей, чтобы не было вращения
+        velocityYaw = 0f;
+        velocityPitch = 0f;
+        fatigue = 0f;
+        combatStartTime = 0;
+        RotationComponent.update(new Rotation(currentYaw, currentPitch), 360, 360, 360, 360, 0, 2, elytraVisual);
     }
 
     public void onAttack() {
         lastAttackTime = System.currentTimeMillis();
-        distracted = false;
-        distractionTimer = 0;
+        reactionDelayTicks = 3 + rng.nextInt(4);
     }
 
     public void onTargetChange() {
-        reactionDelay = 2 + rng.nextInt(5);
-        overshooting = false;
-        distracted = false;
-        distractionTimer = 0;
+        velocityYaw = velocityPitch = 0f;
+        prevErrorMag = 0f;
+        errorDerivative = 0f;
+        reactionDelayTicks = 5 + rng.nextInt(6);
+        combatStartTime = System.currentTimeMillis();
     }
+
+    public float getFatigue() { return fatigue; }
+    public float getStress() { return (mc.player != null && mc.player.getHealth() < 4f) ? 1f : 0f; }
 }

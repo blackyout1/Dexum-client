@@ -15,14 +15,7 @@ import wtf.dexum.base.events.impl.input.EventSetScreen;
 import wtf.dexum.base.events.impl.other.EventWindowResize;
 import wtf.dexum.base.events.impl.player.EventUpdate;
 import wtf.dexum.base.events.impl.render.EventHudRender;
-import wtf.dexum.client.hud.elements.component.ArrayListComponent;
-import wtf.dexum.client.hud.elements.component.InformationComponent;
-import wtf.dexum.client.hud.elements.component.KeybindsComponent;
-import wtf.dexum.client.hud.elements.component.NotifyComponent;
-import wtf.dexum.client.hud.elements.component.PotionsComponent;
-import wtf.dexum.client.hud.elements.component.StaffComponent;
-import wtf.dexum.client.hud.elements.component.TargetHudComponent;
-import wtf.dexum.client.hud.elements.component.WatermarkComponent;
+import wtf.dexum.client.hud.elements.component.*;
 import wtf.dexum.client.hud.elements.draggable.DraggableHudElement;
 import wtf.dexum.client.modules.api.Category;
 import wtf.dexum.client.modules.api.Module;
@@ -50,7 +43,7 @@ public final class Interface extends Module {
     long init = 0L;
 
     private Interface() {
-
+        this.elementsHud1.add(new DynamicIslandComponent("DynamicIsland", 0.0F, 0.0F));
         this.elementsHud1.add(new WatermarkComponent("Watermark", 0.0F, 0.0F, 960.0F, 495.5F, 10.0F, 10.0F, DraggableHudElement.Align.TOP_LEFT, false));
         this.elementsHud1.add(new PotionsComponent("Potions", 0.0F, 0.0F, 960.0F, 495.5F, 119.15234F, 73.0F, DraggableHudElement.Align.TOP_LEFT, false));
         this.elementsHud1.add(new StaffComponent("Staff", 0.0F, 0.0F, 960.0F, 495.5F, 10.0F, 73.0F, DraggableHudElement.Align.TOP_LEFT, false));
@@ -62,6 +55,7 @@ public final class Interface extends Module {
         this.elementsHud1.add(new TargetHudComponent("TargetHUD", 166.5F, 128.5F, 960.0F, 495.5F, 0.0F, 31.75F, DraggableHudElement.Align.CENTER));
         this.elementsHud1.add(new ArrayListComponent("ArrayList", 0.0F, 0.0F, 960.0F, 495.5F, -10.0F, 10.0F, DraggableHudElement.Align.TOP_RIGHT));
 
+        this.elementsHud2.add(new DynamicIslandComponent("DynamicIslandV2", 0.0F, 0.0F));
         this.elementsHud2.add(new WatermarkComponent("WatermarkV2", 0.0F, 0.0F, 960.0F, 495.5F, 5.0F, 5.0F, DraggableHudElement.Align.TOP_LEFT, true));
         this.elementsHud2.add(new KeybindsComponent("KeybindsV2", 0.0F, 0.0F, 960.0F, 495.5F, 5.0F, 30.0F, DraggableHudElement.Align.TOP_LEFT, true));
         this.elementsHud2.add(new PotionsComponent("PotionsV2", 0.0F, 0.0F, 960.0F, 495.5F, 5.0F, 100.0F, DraggableHudElement.Align.TOP_LEFT, true));

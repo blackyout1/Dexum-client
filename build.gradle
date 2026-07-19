@@ -1,7 +1,7 @@
 plugins {
     id 'fabric-loom' version '1.10-SNAPSHOT'
     id 'maven-publish'
-    id 'com.gradleup.shadow' version '9.0.0-beta15'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
 version = project.mod_version
@@ -11,29 +11,53 @@ base {
     archivesName = project.archives_base_name
 }
 
+// Конфигурация для корректного слияния библиотек в Fabric Loom
+configurations {
+    shadow
+    implementation.extendsFrom shadow
+}
+
 repositories {
     mavenCentral()
     maven { url "https://jitpack.io" }
+
+    // ПРАВИЛЬНЫЕ репозитории для Meteor Development (discord-ipc и orbit)
     maven { url "https://maven.meteordev.org/releases" }
-    maven { url "https://maven.meteordev.org" }
+    maven { url "https://meteordev.org" }
+
+    // ПРАВИЛЬНЫЙ репозиторий для NetherPathfinder
+    maven {
+        name = 'babbaj-repo'
+        url = 'https://babbaj.github.io/maven/'
+    }
 }
 
 dependencies {
+    // Локальный JAR Baritone
+    modImplementation files('libs/baritone-api-fabric-1.13.1.jar')
+
+    // Вшиваем nether-pathfinder через shadow
+    shadow "dev.babbaj:nether-pathfinder:1.4.1"
+
     implementation 'com.microsoft.onnxruntime:onnxruntime:1.18.0'
+
     minecraft("com.mojang:minecraft:${project.minecraft_version}")
     mappings("net.fabricmc:yarn:${project.yarn_mappings}:v2")
     modImplementation("net.fabricmc:fabric-loader:${project.loader_version}")
     modImplementation("net.fabricmc.fabric-api:fabric-api:${project.fabric_version}")
+
+    // Для Meteor-зависимостей используем стандартный синтаксис (через двоеточие)
     include implementation("meteordevelopment:discord-ipc:1.1")
     include implementation("meteordevelopment:orbit:0.2.3")
     implementation(shadow("dev.redstones.mediaplayerinfo:media-player-info:0.1.0"))
+
     compileOnly("org.projectlombok:lombok:1.18.38")
     annotationProcessor("org.projectlombok:lombok:1.18.38")
 }
 
 tasks.withType(JavaCompile).configureEach {
     it.options.encoding = "UTF-8"
-    if (21 >= 10 || JavaVersion.current().isJava10Compatible()) it.options.release.set(21)
+    it.options.release = 21
 }
 
 loom {
@@ -44,8 +68,7 @@ loom {
 }
 
 java {
-    def javaVersion = JavaVersion.toVersion(21)
-    if (JavaVersion.current() < javaVersion) toolchain.languageVersion = JavaLanguageVersion.of(21)
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
     withSourcesJar()
 }
 

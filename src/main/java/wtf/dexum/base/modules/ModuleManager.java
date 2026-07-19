@@ -118,6 +118,7 @@ public final class ModuleManager implements IMinecraft {
     }
 
     private void registerPlayer() {
+        registerModule(AutoWarden.INSTANCE);
         registerModule(AutoTool.INSTANCE);
         registerModule(AutoArmor.INSTANCE);
         registerModule(Blink.INSTANCE);
