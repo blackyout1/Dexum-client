@@ -19,6 +19,7 @@ import wtf.dexum.base.macro.Macro;
 import wtf.dexum.client.modules.api.Module;
 import wtf.dexum.client.modules.api.setting.Setting;
 import wtf.dexum.client.modules.api.setting.impl.BooleanSetting;
+import wtf.dexum.client.modules.api.setting.impl.KeySetting;
 import wtf.dexum.client.modules.api.setting.impl.ModeSetting;
 import wtf.dexum.client.modules.api.setting.impl.MultiBooleanSetting;
 import wtf.dexum.client.modules.impl.combat.*;
@@ -115,6 +116,8 @@ public final class ModuleManager implements IMinecraft {
         registerModule(AspectRatio.INSTANCE);
         registerModule(ShaderHands.INSTANCE);
         registerModule(CustomSky.INSTANCE);
+        registerModule(BlockESP.INSTANCE);
+        registerModule(AutoVillageTrade.INSTANCE);
     }
 
     private void registerPlayer() {
@@ -189,6 +192,10 @@ public final class ModuleManager implements IMinecraft {
                         if (booleanSetting.getKeyCode() == keyCode && booleanSetting.getKeyCode() != -1) {
                             booleanSetting.toggle();
                         }
+                    } else if (setting instanceof KeySetting keySetting) {
+                        // Для KeySetting не обрабатываем нажатия в ModuleManager
+                        // Пусть модули сами обрабатывают свои KeySetting
+                        // keySetting.setKeyCode(-1); // убрали очистку бинда
                     }
                 }
             }

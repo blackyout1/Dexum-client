@@ -1148,10 +1148,8 @@ public final class AutoWarden extends Module implements IMinecraft {
             BaritoneAPI.getSettings().freeLook.value = false;
             BaritoneAPI.getSettings().rightClickContainerOnArrival.value = false;
             // Обход скалкрикунов (если доступно)
-            try {
-                BaritoneAPI.getSettings().avoidSculkShriekers.value = true;
-                BaritoneAPI.getSettings().avoidSculkShriekersDistance.value = 12;
-            } catch (Throwable ignored) {}
+            // BaritoneAPI.getSettings().avoidSculkShriekers.value = true;
+            // BaritoneAPI.getSettings().avoidSculkShriekersDistance.value = 12;
         } catch (Throwable ignored) {}
     }
 
