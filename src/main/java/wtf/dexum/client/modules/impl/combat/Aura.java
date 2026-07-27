@@ -78,6 +78,7 @@ public final class Aura extends Module {
     private final ModeSetting.Value modeHVH;
     private final ModeSetting.Value modeNeural;
     private final ModeSetting.Value modeLegit;
+    private final ModeSetting.Value modeML;   // Новая ML-ротация
 
     private final VanillaRotation rotVanilla = new VanillaRotation();
     private final SpookytimeRotation rotFunTime = new SpookytimeRotation();
@@ -88,6 +89,7 @@ public final class Aura extends Module {
     private final HVHRotation rotHVH = new HVHRotation();
     private final NeuralRotation rotNeural = new NeuralRotation();
     private final LegitRotation rotLegit = new LegitRotation();
+    private final MLRotation rotML = new MLRotation();   // Экземпляр ML-ротации
 
     public LegitRotation getRotLegit() { return rotLegit; }
     public NeuralRotation getRotNeural() { return rotNeural; }
@@ -141,6 +143,7 @@ public final class Aura extends Module {
         this.modeHVH = new ModeSetting.Value(this.rotationMode, "HVH");
         this.modeNeural = new ModeSetting.Value(this.rotationMode, "Neural");
         this.modeLegit = new ModeSetting.Value(this.rotationMode, "Legit");
+        this.modeML = new ModeSetting.Value(this.rotationMode, "ML");    // Только одна строка
 
         this.correction = new ModeSetting("Коррекция", new String[0]);
         this.correctionFocus = new ModeSetting.Value(this.correction, "Фокус");
@@ -339,6 +342,7 @@ public final class Aura extends Module {
             else if (this.modeHVH.isSelected()) currentRot = rotHVH;
             else if (this.modeNeural.isSelected()) currentRot = rotNeural;
             else if (this.modeLegit.isSelected()) currentRot = rotLegit;
+            else if (this.modeML.isSelected()) currentRot = rotML;
 
             if (currentRot != null) {
                 currentRot.setYaw(this.lastYaw);
@@ -358,6 +362,8 @@ public final class Aura extends Module {
                     ((NeuralRotation) currentRot).update(this.target, angle, elytraVisual);
                 } else if (currentRot instanceof LegitRotation) {
                     ((LegitRotation) currentRot).update(this.target, angle, elytraVisual);
+                } else if (currentRot instanceof MLRotation) {      // <--- Обработка MLRotation
+                    ((MLRotation) currentRot).update(this.target, angle, elytraVisual);
                 } else {
                     currentRot.update(angle, elytraVisual);
                 }
