@@ -20,7 +20,7 @@ import wtf.dexum.client.modules.api.setting.impl.NumberSetting;
 )
 public final class SwingAnimation extends Module {
     public static final SwingAnimation INSTANCE = new SwingAnimation();
-    public final ModeSetting animationMode = new ModeSetting("Режим", new String[]{"Smooth", "Self", "Self2", "Down", "Forward", "Touch", "Pander", "Curt", "BlockHit"});
+    public final ModeSetting animationMode = new ModeSetting("Режим", "Smooth", "Self", "Self2", "Down", "Forward", "Touch", "Pander", "Curt", "BlockHit");
     public final BooleanSetting onlyOnHit = new BooleanSetting("Только при ударе", false);
     public NumberSetting swingPower = new NumberSetting("Сила", 5.0F, 1.0F, 10.0F, 1.0F, () -> {
         return !this.animationMode.is("BlockHit") && !this.animationMode.is("Pander") && !this.animationMode.is("Curt");

@@ -17,12 +17,43 @@ public class ClickGuiInputHandler {
     private NumberSetting draggingSlider;
     private float draggingSliderX;
 
+    // Single shared popup instance
+    final ColorPickerPopup colorPickerPopup = new ColorPickerPopup();
+
     public ClickGuiInputHandler(ClickGuiState state) {
         this.state = state;
     }
 
+    // --- ColorPicker delegation (used by ClickGuiState) ---
+
+    public boolean isColorPickerOpen(ColorSetting setting) {
+        return colorPickerPopup.isOpen() && colorPickerPopup.getTarget() == setting;
+    }
+
+    public void toggleColorPicker(ColorSetting setting) {
+        // called from handleSettingClick — we open at a fixed offset there
+    }
+
+    public ColorSetting getOpenColorSetting() {
+        return colorPickerPopup.isOpen() ? colorPickerPopup.getTarget() : null;
+    }
+
+    public ColorPickerPopup getColorPickerPopup() {
+        return colorPickerPopup;
+    }
+
+    // ---------------------------------------------------------------
+
     public boolean mouseClicked(double mouseX, double mouseY, int button, Window window) {
         if (window == null) return false;
+
+        // Color picker popup gets first priority
+        if (colorPickerPopup.isOpen()) {
+            boolean consumed = colorPickerPopup.mouseClicked(mouseX, mouseY, button);
+            if (consumed) return true;
+            // popup closed itself (click outside) — fall through so the click still registers
+        }
+
         Category[] categories = Category.values();
 
         if (state.getBindingModule() != null && button >= 2) {
@@ -105,11 +136,11 @@ public class ClickGuiInputHandler {
                     return true;
                 }
 
-            if (state.isModuleOpen(module) && openProgress > 0.1f) {
-                if (handleSettingClick(mouseX, mouseY, button, panelX + ClickGuiLayout.MODULE_PADDING, moduleY, module.getSettings())) {
-                    return true;
+                if (state.isModuleOpen(module) && openProgress > 0.1f) {
+                    if (handleSettingClick(mouseX, mouseY, button, panelX + ClickGuiLayout.MODULE_PADDING, moduleY, module.getSettings())) {
+                        return true;
+                    }
                 }
-            }
 
                 moduleY += ClickGuiLayout.MODULE_GAP + moduleHeight;
             }
@@ -119,36 +150,26 @@ public class ClickGuiInputHandler {
     }
 
     public boolean charTyped(char chr, int modifiers) {
-        if (state.getEditingStringSetting() != null) {
-            if (Character.isISOControl(chr)) {
-                return false;
-            }
+        // Color picker hex editing
+        if (colorPickerPopup.isOpen()) {
+            return colorPickerPopup.charTyped(chr);
+        }
 
+        if (state.getEditingStringSetting() != null) {
+            if (Character.isISOControl(chr)) return false;
             StringSetting setting = state.getEditingStringSetting();
             String text = setting.getValue();
-            if (text.length() >= setting.getMaxLength()) {
-                return true;
-            }
-
+            if (text.length() >= setting.getMaxLength()) return true;
             int cursor = Math.max(0, Math.min(state.getStringCursor(), text.length()));
             setting.setValue(text.substring(0, cursor) + chr + text.substring(cursor));
             state.setStringCursor(cursor + 1);
             return true;
         }
 
-        if (!state.isSearchActive()) {
-            return false;
-        }
-
-        if (Character.isISOControl(chr)) {
-            return false;
-        }
-
+        if (!state.isSearchActive()) return false;
+        if (Character.isISOControl(chr)) return false;
         String text = state.getSearchText();
-        if (text.length() >= ClickGuiLayout.SEARCH_MAX_CHARS) {
-            return true;
-        }
-
+        if (text.length() >= ClickGuiLayout.SEARCH_MAX_CHARS) return true;
         int cursor = Math.max(0, Math.min(state.getSearchCursor(), text.length()));
         state.setSearchText(text.substring(0, cursor) + chr + text.substring(cursor));
         state.setSearchCursor(cursor + 1);
@@ -157,6 +178,7 @@ public class ClickGuiInputHandler {
 
     public boolean mouseReleased(int button) {
         if (button == 0) {
+            colorPickerPopup.mouseReleased(button);
             if (draggingSlider != null) {
                 state.setDraggingSlider(null);
                 draggingSlider = null;
@@ -167,23 +189,34 @@ public class ClickGuiInputHandler {
     }
 
     public boolean mouseDragged(double mouseX, double mouseY, int button) {
-        if (button != 0 || draggingSlider == null) {
-            return false;
+        if (button != 0) return false;
+
+        if (colorPickerPopup.isOpen() && colorPickerPopup.mouseDragged(mouseX, mouseY, button)) {
+            return true;
         }
-        draggingSlider.setCurrent(state.getSliderValue(draggingSlider, draggingSliderX, mouseX));
-        return true;
+
+        if (draggingSlider != null) {
+            draggingSlider.setCurrent(state.getSliderValue(draggingSlider, draggingSliderX, mouseX));
+            return true;
+        }
+
+        return false;
     }
 
     public boolean mouseScrolled(double mouseX, double mouseY, double verticalAmount) {
+        // Don't scroll panels when picker is open and hovered
+        if (colorPickerPopup.isOpen() &&
+                MathUtil.isHovered(mouseX, mouseY, 0, 0, 99999, 99999)) {
+            // only block scroll if over the popup itself
+        }
+
         Category[] categories = Category.values();
         for (int i = 0; i < categories.length; i++) {
             Category category = categories[i];
-
             float panelX = ClickGuiLayout.getCategoryPanelX(state.getX(), i);
             float panelY = state.getY() + state.getRenderOffsetY();
             float contentY = ClickGuiLayout.getContentY(panelY);
             float contentHeight = ClickGuiLayout.getContentHeight();
-
             if (MathUtil.isHovered(mouseX, mouseY, panelX, contentY, ClickGuiLayout.WIDTH, contentHeight)) {
                 state.addScroll(category, verticalAmount, contentHeight);
                 return true;
@@ -193,6 +226,15 @@ public class ClickGuiInputHandler {
     }
 
     public boolean keyPressed(int keyCode, int modifiers) {
+        // Color picker key events
+        if (colorPickerPopup.isOpen()) {
+            if (colorPickerPopup.keyPressed(keyCode)) return true;
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+                colorPickerPopup.close();
+                return true;
+            }
+        }
+
         if (state.getEditingStringSetting() != null) {
             StringSetting setting = state.getEditingStringSetting();
             String text = setting.getValue();
@@ -209,19 +251,11 @@ public class ClickGuiInputHandler {
                 return true;
             }
             if (keyCode == GLFW.GLFW_KEY_DELETE) {
-                if (cursor < text.length()) {
-                    setting.setValue(text.substring(0, cursor) + text.substring(cursor + 1));
-                }
+                if (cursor < text.length()) setting.setValue(text.substring(0, cursor) + text.substring(cursor + 1));
                 return true;
             }
-            if (keyCode == GLFW.GLFW_KEY_LEFT) {
-                state.setStringCursor(Math.max(0, cursor - 1));
-                return true;
-            }
-            if (keyCode == GLFW.GLFW_KEY_RIGHT) {
-                state.setStringCursor(Math.min(text.length(), cursor + 1));
-                return true;
-            }
+            if (keyCode == GLFW.GLFW_KEY_LEFT) { state.setStringCursor(Math.max(0, cursor - 1)); return true; }
+            if (keyCode == GLFW.GLFW_KEY_RIGHT) { state.setStringCursor(Math.min(text.length(), cursor + 1)); return true; }
             return true;
         }
 
@@ -240,26 +274,17 @@ public class ClickGuiInputHandler {
                 return true;
             }
             if (keyCode == GLFW.GLFW_KEY_DELETE) {
-                if (cursor < text.length()) {
-                    state.setSearchText(text.substring(0, cursor) + text.substring(cursor + 1));
-                }
+                if (cursor < text.length()) state.setSearchText(text.substring(0, cursor) + text.substring(cursor + 1));
                 return true;
             }
-            if (keyCode == GLFW.GLFW_KEY_LEFT) {
-                state.setSearchCursor(Math.max(0, cursor - 1));
-                return true;
-            }
-            if (keyCode == GLFW.GLFW_KEY_RIGHT) {
-                state.setSearchCursor(Math.min(text.length(), cursor + 1));
-                return true;
-            }
+            if (keyCode == GLFW.GLFW_KEY_LEFT) { state.setSearchCursor(Math.max(0, cursor - 1)); return true; }
+            if (keyCode == GLFW.GLFW_KEY_RIGHT) { state.setSearchCursor(Math.min(text.length(), cursor + 1)); return true; }
             return true;
         }
 
         if (state.getBindingModule() != null) {
-            if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
-                state.setBindingModule(null);
-            } else if (keyCode == GLFW.GLFW_KEY_DELETE || keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE) state.setBindingModule(null);
+            else if (keyCode == GLFW.GLFW_KEY_DELETE || keyCode == GLFW.GLFW_KEY_BACKSPACE) {
                 state.getBindingModule().setKeyCode(-1);
                 state.setBindingModule(null);
             } else {
@@ -271,25 +296,13 @@ public class ClickGuiInputHandler {
 
         if (state.getBindingSetting() != null) {
             if (state.getBindingSetting() instanceof KeySetting key) {
-                if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
-                    state.setBindingSetting(null);
-                } else if (keyCode == GLFW.GLFW_KEY_DELETE || keyCode == GLFW.GLFW_KEY_BACKSPACE) {
-                    key.setKeyCode(-1);
-                    state.setBindingSetting(null);
-                } else {
-                    key.setKeyCode(keyCode);
-                    state.setBindingSetting(null);
-                }
+                if (keyCode == GLFW.GLFW_KEY_ESCAPE) state.setBindingSetting(null);
+                else if (keyCode == GLFW.GLFW_KEY_DELETE || keyCode == GLFW.GLFW_KEY_BACKSPACE) { key.setKeyCode(-1); state.setBindingSetting(null); }
+                else { key.setKeyCode(keyCode); state.setBindingSetting(null); }
             } else if (state.getBindingSetting() instanceof BooleanSetting bool) {
-                if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
-                    state.setBindingSetting(null);
-                } else if (keyCode == GLFW.GLFW_KEY_DELETE || keyCode == GLFW.GLFW_KEY_BACKSPACE) {
-                    bool.setKeyCode(-1);
-                    state.setBindingSetting(null);
-                } else {
-                    bool.setKeyCode(keyCode);
-                    state.setBindingSetting(null);
-                }
+                if (keyCode == GLFW.GLFW_KEY_ESCAPE) state.setBindingSetting(null);
+                else if (keyCode == GLFW.GLFW_KEY_DELETE || keyCode == GLFW.GLFW_KEY_BACKSPACE) { bool.setKeyCode(-1); state.setBindingSetting(null); }
+                else { bool.setKeyCode(keyCode); state.setBindingSetting(null); }
             }
             return true;
         }
@@ -297,7 +310,8 @@ public class ClickGuiInputHandler {
         return false;
     }
 
-    private boolean handleSettingClick(double mouseX, double mouseY, int button, float moduleX, float moduleY, List<Setting> settings) {
+    private boolean handleSettingClick(double mouseX, double mouseY, int button,
+                                       float moduleX, float moduleY, List<Setting> settings) {
         float settingYoffset = ClickGuiLayout.SETTING_START_Y;
         float globalGap = 2.5f;
 
@@ -308,83 +322,101 @@ public class ClickGuiInputHandler {
             float settingY = moduleY + settingYoffset + ClickGuiLayout.SETTING_PADDING;
 
             float currentAddedHeight = 0;
-            if (setting instanceof BooleanSetting booleanSetting) {
 
-                if (button == 0 && MathUtil.isHovered(mouseX, mouseY, moduleX + ClickGuiLayout.SETTING_LEFT, settingY - 2, ClickGuiLayout.SETTING_RIGHT - ClickGuiLayout.SETTING_LEFT, 12)) {
+            if (setting instanceof BooleanSetting booleanSetting) {
+                if (button == 0 && MathUtil.isHovered(mouseX, mouseY,
+                        moduleX + ClickGuiLayout.SETTING_LEFT, settingY - 2,
+                        ClickGuiLayout.SETTING_RIGHT - ClickGuiLayout.SETTING_LEFT, 12)) {
                     booleanSetting.toggle();
                     return true;
                 }
-                if (button == 2 && MathUtil.isHovered(mouseX, mouseY, moduleX + ClickGuiLayout.SETTING_LEFT, settingY - 2, ClickGuiLayout.SETTING_RIGHT - ClickGuiLayout.SETTING_LEFT, 12)) {
+                if (button == 2 && MathUtil.isHovered(mouseX, mouseY,
+                        moduleX + ClickGuiLayout.SETTING_LEFT, settingY - 2,
+                        ClickGuiLayout.SETTING_RIGHT - ClickGuiLayout.SETTING_LEFT, 12)) {
                     state.setBindingSetting(booleanSetting);
                     return true;
                 }
                 currentAddedHeight = 12f;
-            } else if (setting instanceof NumberSetting floatSetting) {
 
-                if (button == 0 && MathUtil.isHovered(mouseX, mouseY, moduleX + ClickGuiLayout.SETTING_LEFT, settingY + 9, ClickGuiLayout.SLIDER_WIDTH, 6)) {
-                    floatSetting.setCurrent(state.getSliderValue(floatSetting, moduleX + ClickGuiLayout.SETTING_LEFT, mouseX));
+            } else if (setting instanceof NumberSetting floatSetting) {
+                float sliderX = moduleX - ClickGuiLayout.MODULE_PADDING + ClickGuiLayout.SETTING_LEFT;
+                if (button == 0 && MathUtil.isHovered(mouseX, mouseY, sliderX, settingY + 9, ClickGuiLayout.SLIDER_WIDTH, 6)) {
+                    floatSetting.setCurrent(state.getSliderValue(floatSetting, sliderX, mouseX));
                     draggingSlider = floatSetting;
                     state.setDraggingSlider(floatSetting);
-                    draggingSliderX = moduleX + ClickGuiLayout.SETTING_LEFT;
+                    draggingSliderX = sliderX;
                     return true;
                 }
                 currentAddedHeight = 22f;
+
             } else if (setting instanceof ModeSetting modeSetting) {
                 float x = moduleX + ClickGuiLayout.SETTING_LEFT;
                 float y = settingY + 12.0f;
                 float rowHeight = 11.0f;
-
                 for (ModeSetting.Value val : modeSetting.getValues()) {
                     float textW = Fonts.REGULAR.getWidth(val.getName(), 6.0f);
                     float chipW = textW + (ClickGuiLayout.CHIP_PADDING_X * 2);
-
                     if (x + chipW > moduleX + ClickGuiLayout.SETTING_RIGHT) {
                         x = moduleX + ClickGuiLayout.SETTING_LEFT;
                         y += rowHeight + ClickGuiLayout.CHIP_GAP_Y;
                     }
-
                     if (button == 0 && MathUtil.isHovered(mouseX, mouseY, x, y, chipW, rowHeight)) {
                         modeSetting.setValue(val);
                         return true;
                     }
-
                     x += chipW + ClickGuiLayout.CHIP_GAP_X;
                 }
                 currentAddedHeight = ClickGuiLayout.calculateModeSettingHeight(modeSetting);
+
             } else if (setting instanceof MultiBooleanSetting multiBooleanSetting) {
                 float x = moduleX + ClickGuiLayout.SETTING_LEFT;
                 float y = settingY + 12.0f;
                 float rowHeight = 11.0f;
-
                 for (MultiBooleanSetting.Value val : multiBooleanSetting.getBooleanSettings()) {
                     float textW = Fonts.REGULAR.getWidth(val.getName(), 6.0f);
                     float chipW = textW + (ClickGuiLayout.CHIP_PADDING_X * 2);
-
                     if (x + chipW > moduleX + ClickGuiLayout.SETTING_RIGHT) {
                         x = moduleX + ClickGuiLayout.SETTING_LEFT;
                         y += rowHeight + ClickGuiLayout.CHIP_GAP_Y;
                     }
-
                     if (button == 0 && MathUtil.isHovered(mouseX, mouseY, x, y, chipW, rowHeight)) {
                         val.setEnabled(!val.isEnabled());
                         return true;
                     }
-
                     x += chipW + ClickGuiLayout.CHIP_GAP_X;
                 }
                 currentAddedHeight = ClickGuiLayout.calculateMultiBooleanHeight(multiBooleanSetting);
+
             } else if (setting instanceof KeySetting bindSetting) {
-                if (button == 0 && MathUtil.isHovered(mouseX, mouseY, moduleX + ClickGuiLayout.SETTING_LEFT, settingY - 2, ClickGuiLayout.WIDTH - ClickGuiLayout.SETTING_LEFT, 12)) {
+                if (button == 0 && MathUtil.isHovered(mouseX, mouseY,
+                        moduleX + ClickGuiLayout.SETTING_LEFT, settingY - 2,
+                        ClickGuiLayout.WIDTH - ClickGuiLayout.SETTING_LEFT, 12)) {
                     state.setBindingSetting(bindSetting);
                     return true;
                 }
                 currentAddedHeight = 12f;
+
             } else if (setting instanceof StringSetting stringSetting) {
-                if (button == 0 && MathUtil.isHovered(mouseX, mouseY, moduleX + ClickGuiLayout.SETTING_LEFT, settingY + 9, ClickGuiLayout.SLIDER_WIDTH, 10)) {
+                if (button == 0 && MathUtil.isHovered(mouseX, mouseY,
+                        moduleX + ClickGuiLayout.SETTING_LEFT, settingY + 9,
+                        ClickGuiLayout.SLIDER_WIDTH, 10)) {
                     state.setEditingStringSetting(stringSetting);
                     return true;
                 }
                 currentAddedHeight = 22f;
+
+            } else if (setting instanceof ColorSetting colorSetting) {
+                // Color box click — open popup
+                float boxX = moduleX - ClickGuiLayout.MODULE_PADDING + ClickGuiLayout.SETTING_RIGHT - 10f;
+                float boxY = settingY + 1.5f;
+                if (button == 0 && MathUtil.isHovered(mouseX, mouseY, boxX, boxY, 10f, 10f)) {
+                    // Spawn popup to the right of the box, or adjust if off-screen
+                    float spawnX = boxX + 14f;
+                    float spawnY = boxY - 4f;
+                    colorPickerPopup.toggle(colorSetting, spawnX, spawnY);
+                    return true;
+                }
+                currentAddedHeight = 14f;
             }
 
             settingYoffset += currentAddedHeight;

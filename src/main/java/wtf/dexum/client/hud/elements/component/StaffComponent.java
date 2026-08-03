@@ -61,17 +61,17 @@ public class StaffComponent extends DraggableHudElement {
         this.modules.entrySet().removeIf((entry) -> entry.getValue().isDelete());
         float posX = this.getX();
         float posY = this.getY();
-        Theme theme = Dexum.getInstance().getThemeManager().getCurrentTheme();
-        ColorRGBA themeColor = theme.getColor();
+        ColorRGBA themeColor = Dexum.getInstance().getThemeManager().getCurrentTheme().getColor();
+        ColorRGBA hudBg = wtf.dexum.client.modules.impl.render.Interface.getHudColor();
 
         if (v2) {
-            renderV2(ctx, posX, posY, themeColor);
+            renderV2(ctx, posX, posY, themeColor, hudBg);
         } else {
-            renderClassic(ctx, posX, posY, themeColor);
+            renderClassic(ctx, posX, posY, themeColor, hudBg);
         }
     }
 
-    private void renderV2(CustomDrawContext ctx, float posX, float posY, ColorRGBA themeColor) {
+    private void renderV2(CustomDrawContext ctx, float posX, float posY, ColorRGBA themeColor, ColorRGBA hudBg) {
         boolean isFound = false;
         float staffHeight = 0.0F;
         float maxNameWidth = 0.0F;
@@ -112,13 +112,13 @@ public class StaffComponent extends DraggableHudElement {
 
         DrawUtil.drawRoundedRect(ctx.getMatrices(), posX, posY, animWidth, headerHeight,
                 new BorderRadius(rounding.x, rounding.y, 0, 0),
-                ColorRGBA.BLACK.withAlpha((int)(255 * this.alpha.getValue())));
+                hudBg.withAlpha((int)(255 * this.alpha.getValue())));
 
         float bodyY = posY + headerHeight;
         float bodyHeight = totalHeight - headerHeight;
         DrawUtil.drawRoundedRect(ctx.getMatrices(), posX, bodyY, animWidth, bodyHeight,
                 new BorderRadius(0, 0, rounding.z, rounding.w),
-                new ColorRGBA(0, 0, 0, (int)(135 * this.alpha.getValue())));
+                hudBg.withAlpha((int)(135 * this.alpha.getValue())));
 
         float headerTextWidth = Fonts.REGULAR.getWidth("Staff", 8.0F);
         float iconSize = 9.2f;
@@ -150,7 +150,7 @@ public class StaffComponent extends DraggableHudElement {
         this.height = totalHeight;
     }
 
-    private void renderClassic(CustomDrawContext ctx, float posX, float posY, ColorRGBA themeColor) {
+    private void renderClassic(CustomDrawContext ctx, float posX, float posY, ColorRGBA themeColor, ColorRGBA hudBg) {
         boolean isFound = false;
 
         for(Map.Entry<String, StaffModule> module : this.modules.entrySet()) {
@@ -192,8 +192,8 @@ public class StaffComponent extends DraggableHudElement {
 
         if (this.alpha.getValue() > 0.01F) {
             float rounding = 4.0F;
-            ColorRGBA headerColor = new ColorRGBA(0, 0, 0, (int)(255 * this.alpha.getValue()));
-            ColorRGBA bodyColor = new ColorRGBA(0, 0, 0, (int)(125 * this.alpha.getValue()));
+            ColorRGBA headerColor = hudBg.withAlpha((int)(255 * this.alpha.getValue()));
+            ColorRGBA bodyColor = hudBg.withAlpha((int)(125 * this.alpha.getValue()));
 
             DrawUtil.drawBlur(ctx.getMatrices(), posX, posY, currentWidth, totalHeight, 15.0F, BorderRadius.all(rounding), ColorRGBA.WHITE.withAlpha((int)(255 * this.alpha.getValue())));
 

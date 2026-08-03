@@ -14,7 +14,7 @@ public final class ClickGuiLayout {
     public static final float CATEGORY_PANEL_STEP = 115f;
 
     public static final float MODULE_PADDING = 2.5f;
-    public static final float MODULE_GAP = 4.0f;
+    public static final float MODULE_GAP = 2.5f;
     public static final float MODULE_HEADER_HEIGHT = 19.0f;
     public static final float MODULE_INNER_WIDTH = 100.0f;
     public static final float SETTING_START_Y = 17.5f;
@@ -115,9 +115,7 @@ public final class ClickGuiLayout {
     public static float calculateSettingsHeight(Module module) {
         float height = 0f;
         List<Setting> settings = module.getSettings();
-        if (settings == null || settings.isEmpty()) {
-            return 0f;
-        }
+        if (settings == null || settings.isEmpty()) return 0f;
 
         boolean hasVisibleSetting = false;
         float globalGap = 2.5f;
@@ -136,18 +134,15 @@ public final class ClickGuiLayout {
                 currentHeight = calculateModeSettingHeight(modeSetting);
             } else if (setting instanceof MultiBooleanSetting multiBooleanSetting) {
                 currentHeight = calculateMultiBooleanHeight(multiBooleanSetting);
+            } else if (setting instanceof ColorSetting) {
+                currentHeight = 14f; // popup is separate, no inline expansion
             }
-
             height += currentHeight;
 
-            if (i < visibleSettings.size() - 1) {
-                height += globalGap;
-            }
+            if (i < visibleSettings.size() - 1) height += globalGap;
         }
 
-        if (hasVisibleSetting) {
-            height += SETTING_BOTTOM_PADDING;
-        }
+        if (hasVisibleSetting) height += SETTING_BOTTOM_PADDING;
         return height;
     }
 

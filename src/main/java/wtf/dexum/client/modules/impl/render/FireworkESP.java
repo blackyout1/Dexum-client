@@ -8,10 +8,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
-import org.joml.Matrix4f;
-import org.joml.Quaternionf;
-import org.joml.Vector3f;
-import org.joml.Vector4f;
 import wtf.dexum.base.events.impl.render.EventRender2D;
 import wtf.dexum.base.events.impl.render.EventRender3D;
 import wtf.dexum.base.font.Fonts;
@@ -25,7 +21,6 @@ import wtf.dexum.utility.render.display.base.BorderRadius;
 import wtf.dexum.utility.render.display.base.color.ColorRGBA;
 import wtf.dexum.utility.render.display.base.CustomDrawContext;
 import wtf.dexum.utility.render.display.shader.DrawUtil;
-import wtf.dexum.utility.render.level.Render3DUtil;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -171,15 +166,6 @@ public final class FireworkESP extends Module implements IMinecraft {
         final List<TrailPoint> points = new ArrayList<>();
     }
 
-    private static class TrailPoint {
-        final Vec3d pos;
-        final long timestamp;
-        final float ageSec;
-
-        TrailPoint(Vec3d pos, long timestamp, float ageSec) {
-            this.pos = pos;
-            this.timestamp = timestamp;
-            this.ageSec = ageSec;
-        }
+    private record TrailPoint(Vec3d pos, long timestamp, float ageSec) {
     }
 }

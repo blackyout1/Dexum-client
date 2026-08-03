@@ -42,10 +42,8 @@ public class TargetESP extends Module {
    public static final TargetESP INSTANCE = new TargetESP();
    private static final Identifier GLOW_TEXTURE = Identifier.of("dexum", "icons/glow.png");
    private static final Identifier BLOOM_TEXTURE = Identifier.of("dexum", "icons/bloom.png");
-   private final ModeSetting mode = new ModeSetting("Мод", new String[]{
-           "Маркер", "Призраки", "Призраки 1", "Призраки 2", "Призраки 3", "Призраки 4",
-           "Сканер", "Призрачные орбиты", "Кристаллы", "Молнии", "Атомы"
-   });
+   private final ModeSetting mode = new ModeSetting("Мод", "Маркер", "Призраки", "Призраки 1", "Призраки 2", "Призраки 3", "Призраки 4",
+           "Сканер", "Призрачные орбиты", "Кристаллы", "Молнии", "Атомы");
    private final Animation animation = new Animation(400L, Easing.CUBIC_OUT);
    private final Animation animation2 = new Animation(250L, Easing.CUBIC_OUT);
    private Entity lastTarget;
@@ -982,19 +980,9 @@ public class TargetESP extends Module {
    }
 
    // ---------- ВСПОМОГАТЕЛЬНЫЕ КЛАССЫ ----------
-   private static class GhostPoint {
-      final Vec3d position;
-      final float size;
-      GhostPoint(Vec3d p, float s) { position = p; size = s; }
+      private record GhostPoint(Vec3d position, float size) {
    }
 
-   private static class LightningBolt {
-      final Vec3d start, end;
-      final long spawnTime, duration;
-      final int segments;
-      final float offset;
-      LightningBolt(Vec3d s, Vec3d e, long st, long d, int seg, float off) {
-         start = s; end = e; spawnTime = st; duration = d; segments = seg; offset = off;
-      }
+   private record LightningBolt(Vec3d start, Vec3d end, long spawnTime, long duration, int segments, float offset) {
    }
 }

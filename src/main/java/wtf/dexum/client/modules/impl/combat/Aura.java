@@ -45,6 +45,7 @@ import wtf.dexum.client.modules.api.setting.impl.NumberSetting;
 import wtf.dexum.client.modules.impl.combat.rotation.*;
 import wtf.dexum.client.modules.impl.movement.AirStuck;
 import wtf.dexum.client.modules.impl.movement.AutoSprint;
+import wtf.dexum.client.modules.impl.combat.rotation.FunTimeTestRotation;
 import wtf.dexum.utility.component.FreeLookComponent;
 import wtf.dexum.utility.game.player.MovingUtil;
 import wtf.dexum.utility.game.player.PlayerInventoryUtil;
@@ -71,6 +72,8 @@ public final class Aura extends Module {
 
     private final ModeSetting.Value modeVanilla;
     private final ModeSetting.Value modeFunTime;
+    private final ModeSetting.Value modeFunTimeTest;
+    private final ModeSetting.Value modeFunTimeLegit;
     private final ModeSetting.Value modeUniversal;
     private final ModeSetting.Value modeSloth1;
     private final ModeSetting.Value modeSloth2;
@@ -83,6 +86,8 @@ public final class Aura extends Module {
 
     private final VanillaRotation rotVanilla = new VanillaRotation();
     private final SpookytimeRotation rotFunTime = new SpookytimeRotation();
+    private final FunTimeTestRotation rotFunTimeTest = new FunTimeTestRotation();
+    private final FunTimeLegitRotation rotFunTimeLegit = new FunTimeLegitRotation();
     private final UniversalRotation rotUniversal = new UniversalRotation();
     private final Sloth1Rotation rotSloth1 = new Sloth1Rotation();
     private final Sloth2Rotation rotSloth2 = new Sloth2Rotation();
@@ -138,6 +143,8 @@ public final class Aura extends Module {
     private Aura() {
         this.modeVanilla = new ModeSetting.Value(this.rotationMode, "Vanilla");
         this.modeFunTime = new ModeSetting.Value(this.rotationMode, "Spookytime");
+        this.modeFunTimeTest = new ModeSetting.Value(this.rotationMode, "FunTimeTest");
+        this.modeFunTimeLegit = new ModeSetting.Value(this.rotationMode, "FunTimeLegit");
         this.modeUniversal = new ModeSetting.Value(this.rotationMode, "Universal (OLD)");
         this.modeSloth1 = new ModeSetting.Value(this.rotationMode, "Sloth1");
         this.modeSloth2 = new ModeSetting.Value(this.rotationMode, "Sloth2");
@@ -339,6 +346,8 @@ public final class Aura extends Module {
             if (this.modeVanilla.isSelected()) currentRot = rotVanilla;
             else if (this.modeReallyWorld.isSelected()) currentRot = rotReallyWorld;
             else if (this.modeFunTime.isSelected()) currentRot = rotFunTime;
+            else if (this.modeFunTimeTest.isSelected()) currentRot = rotFunTimeTest;
+            else if (this.modeFunTimeLegit.isSelected()) currentRot = rotFunTimeLegit;
             else if (this.modeUniversal.isSelected()) currentRot = rotUniversal;
             else if (this.modeSloth1.isSelected()) currentRot = rotSloth1;
             else if (this.modeSloth2.isSelected()) currentRot = rotSloth2;
@@ -354,6 +363,10 @@ public final class Aura extends Module {
 
                 if (currentRot instanceof SpookytimeRotation) {
                     ((SpookytimeRotation) currentRot).update(this.target, angle, elytraVisual);
+                } else if (currentRot instanceof FunTimeTestRotation) {
+                    ((FunTimeTestRotation) currentRot).update(this.target, angle, elytraVisual);
+                } else if (currentRot instanceof FunTimeLegitRotation) {
+                    ((FunTimeLegitRotation) currentRot).update(this.target, angle, elytraVisual);
                 } else if (currentRot instanceof ReallyWorldRotation) {
                     ((ReallyWorldRotation) currentRot).update(this.target, angle, elytraVisual);
                 } else if (currentRot instanceof UniversalRotation) {
@@ -518,14 +531,17 @@ public final class Aura extends Module {
             return RaytracingUtil.rayTrace(mc.player.getRotationVector(), (double)this.distance.getCurrent(), this.target.getBoundingBox()) || mc.targetedEntity != null;
         }
 
-        if (this.target != null) {
-            Rotation rot = Rotation.getRotations(this.target.getBoundingBox().getCenter());
-            float yawDiff = Math.abs(MathHelper.wrapDegrees(rot.getYaw() - mc.player.getYaw()));
-            float pitchDiff = Math.abs(rot.getPitch() - mc.player.getPitch());
-            float maxAngle = fov.getCurrent() / 2.0f;
-            if (yawDiff > maxAngle || pitchDiff > maxAngle) {
-                return false;
-            }
+        // Для FunTimeTest режима — атака по координатам хитбокса без проверки FOV
+        if (this.target != null && this.modeFunTimeTest.isSelected()) {
+            return true; // Бьём по хитбоксу без проверки направления
+        }
+
+        // Для FunTimeLegit режима — проверка FOV 30 градусов
+        if (this.target != null && this.modeFunTimeLegit.isSelected()) {
+            Rotation targetRot = Rotation.getRotations(this.target.getBoundingBox().getCenter());
+            float deltaYaw = Math.abs(MathHelper.wrapDegrees(targetRot.getYaw() - mc.player.getYaw()));
+            float deltaPitch = Math.abs(targetRot.getPitch() - mc.player.getPitch());
+            return deltaYaw <= 30.0F && deltaPitch <= 30.0F;
         }
 
         return true;

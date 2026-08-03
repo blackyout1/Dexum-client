@@ -63,7 +63,6 @@ public class NotifyComponent extends DraggableHudElement {
         }
 
         this.toggleAnimation.update(mc.currentScreen instanceof ChatScreen || !this.notifications.isEmpty());
-        Theme theme = Dexum.getInstance().getThemeManager().getCurrentTheme();
         Font textFont = Fonts.REGULAR.getFont(6.75F);
         float notificationHeight = 18.0F;
 
@@ -73,7 +72,7 @@ public class NotifyComponent extends DraggableHudElement {
             float anim = n.alphaAnimation.getValue();
             if (anim > 0.001F) {
                 y += 10.5F * anim;
-                n.render(ctx, (float)mc.getWindow().getScaledWidth() / 2.0F, y - 4.0F, textFont, theme, notificationHeight, this);
+                n.render(ctx, (float)mc.getWindow().getScaledWidth() / 2.0F, y - 4.0F, textFont, notificationHeight, this);
                 y += 8.0F * anim;
             }
         }
@@ -88,14 +87,14 @@ public class NotifyComponent extends DraggableHudElement {
             this.enabled = enabled;
         }
 
-        void render(CustomDrawContext ctx, float x, float y, Font textFont, Theme theme, float notificationHeight, NotifyComponent parent) {
+        void render(CustomDrawContext ctx, float x, float y, Font textFont, float notificationHeight, NotifyComponent parent) {
             if (this.timestamp == 0L) {
                 this.timestamp = System.currentTimeMillis();
             }
 
             float iconBgWidth = 16.0F;
             float alpha = this.alphaAnimation.getValue();
-            ColorRGBA themeColor = theme.getColor().withAlpha(alpha * 255.0F);
+            ColorRGBA themeColor = Dexum.getInstance().getThemeManager().getCurrentTheme().getColor().withAlpha(alpha * 255.0F);
             ColorRGBA iconColor = this.enabled ? themeColor : new ColorRGBA(255, 76, 76, alpha * 255.0F);
             ColorRGBA statusColor = this.enabled ? themeColor : new ColorRGBA(255, 76, 76, alpha * 255.0F);
             ColorRGBA whiteColor = ColorRGBA.WHITE.withAlpha(alpha * 255.0F);
@@ -138,14 +137,14 @@ public class NotifyComponent extends DraggableHudElement {
             this.text = text;
         }
 
-        void render(CustomDrawContext ctx, float x, float y, Font textFont, Theme theme, float notificationHeight, NotifyComponent parent) {
+        void render(CustomDrawContext ctx, float x, float y, Font textFont, float notificationHeight, NotifyComponent parent) {
             if (this.timestamp == 0L) {
                 this.timestamp = System.currentTimeMillis();
             }
 
             float iconBgWidth = 16.0F;
             float alpha = this.alphaAnimation.getValue();
-            ColorRGBA themeColor = theme.getColor().withAlpha(alpha * 255.0F);
+            ColorRGBA themeColor = Dexum.getInstance().getThemeManager().getCurrentTheme().getColor().withAlpha(alpha * 255.0F);
             ColorRGBA whiteColor = ColorRGBA.WHITE.withAlpha(alpha * 255.0F);
 
             String displayText = " " + this.text.getString();
@@ -178,13 +177,13 @@ public class NotifyComponent extends DraggableHudElement {
             this.enchanted = enchanted;
         }
 
-        void render(CustomDrawContext ctx, float x, float y, Font textFont, Theme theme, float notificationHeight, NotifyComponent parent) {
+        void render(CustomDrawContext ctx, float x, float y, Font textFont, float notificationHeight, NotifyComponent parent) {
             if (this.timestamp == 0L) {
                 this.timestamp = System.currentTimeMillis();
             }
 
             float iconBgWidth = 16.0F;
-            ColorRGBA themeColor = theme.getColor().withAlpha(this.alphaAnimation.getValue() * 255.0F);
+            ColorRGBA themeColor = wtf.dexum.client.modules.impl.render.Interface.getHudColor().withAlpha(this.alphaAnimation.getValue() * 255.0F);
             ColorRGBA whiteColor = ColorRGBA.WHITE.withAlpha(this.alphaAnimation.getValue() * 255.0F);
             String displayText = " " + this.name + " потерял тотем";
             float displayTextWidth = textFont.width(displayText);
@@ -215,14 +214,14 @@ public class NotifyComponent extends DraggableHudElement {
             this.icon = icon;
         }
 
-        void render(CustomDrawContext ctx, float x, float y, Font textFont, Theme theme, float notificationHeight, NotifyComponent parent) {
+        void render(CustomDrawContext ctx, float x, float y, Font textFont, float notificationHeight, NotifyComponent parent) {
             if (this.timestamp == 0L) {
                 this.timestamp = System.currentTimeMillis();
             }
 
             float iconBgWidth = 16.0F;
             float alpha = this.alphaAnimation.getValue();
-            ColorRGBA themeColor = theme.getColor().withAlpha(alpha * 255.0F);
+            ColorRGBA themeColor = Dexum.getInstance().getThemeManager().getCurrentTheme().getColor().withAlpha(alpha * 255.0F);
             ColorRGBA whiteColor = ColorRGBA.WHITE.withAlpha(alpha * 255.0F);
 
             String displayText = " " + this.itemName;
@@ -255,6 +254,6 @@ public class NotifyComponent extends DraggableHudElement {
             this.alphaAnimation = new Animation(300L, Easing.CUBIC_OUT);
         }
 
-        abstract void render(CustomDrawContext var1, float var2, float var3, Font var4, Theme var5, float var6, NotifyComponent var7);
+        abstract void render(CustomDrawContext var1, float var2, float var3, Font var4, float var5, NotifyComponent var6);
     }
 }

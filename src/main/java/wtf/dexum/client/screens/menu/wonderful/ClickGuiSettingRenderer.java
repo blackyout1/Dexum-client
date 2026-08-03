@@ -11,7 +11,6 @@ import wtf.dexum.utility.render.display.base.CustomDrawContext;
 import wtf.dexum.utility.render.display.base.color.ColorRGBA;
 import wtf.dexum.utility.render.display.shader.DrawUtil;
 import wtf.dexum.utility.render.display.Keyboard;
-import wtf.dexum.utility.render.display.StencilUtil;
 
 import java.util.List;
 
@@ -27,9 +26,12 @@ public class ClickGuiSettingRenderer {
         float settingsClipY = moduleY + ClickGuiLayout.SETTING_START_Y;
         float settingsClipHeight = maxSettingHeight * openProgress;
 
-        CustomDrawContext customDrawContext = CustomDrawContext.of(context);
-
-        context.enableScissor((int)(panelX + ClickGuiLayout.MODULE_PADDING), (int)settingsClipY, (int)(panelX + ClickGuiLayout.MODULE_PADDING + ClickGuiLayout.MODULE_INNER_WIDTH), (int)(settingsClipY + settingsClipHeight + 1));
+        context.enableScissor(
+                (int) (panelX + ClickGuiLayout.MODULE_PADDING),
+                (int) settingsClipY,
+                (int) (panelX + ClickGuiLayout.MODULE_PADDING + ClickGuiLayout.MODULE_INNER_WIDTH),
+                (int) (settingsClipY + settingsClipHeight + 1)
+        );
 
         float settingYoffset = ClickGuiLayout.SETTING_START_Y;
         float globalGap = 2.5f;
@@ -60,6 +62,9 @@ public class ClickGuiSettingRenderer {
             } else if (setting instanceof StringSetting stringSetting) {
                 renderStringSetting(context, panelX, settingY, alpha, colorTheme, stringSetting, state);
                 currentAddedHeight = 22f;
+            } else if (setting instanceof ColorSetting colorSetting) {
+                renderColorSetting(context, panelX, settingY, alpha, colorTheme, mouseX, mouseY, colorSetting, state);
+                currentAddedHeight = 14f;
             }
 
             settingYoffset += currentAddedHeight;
@@ -69,6 +74,42 @@ public class ClickGuiSettingRenderer {
         }
 
         context.disableScissor();
+    }
+
+    private void renderColorSetting(DrawContext context, float panelX, float settingY, int alpha, int colorTheme, double mouseX, double mouseY, ColorSetting colorSetting, ClickGuiState state) {
+        CustomDrawContext ctx = CustomDrawContext.of(context);
+        ColorRGBA color = colorSetting.getColor();
+
+        // Setting name
+        ctx.drawText(
+                Fonts.REGULAR.getFont(6.5f),
+                colorSetting.getName(),
+                panelX + ClickGuiLayout.SETTING_LEFT + 1.5f,
+                settingY + 2.5f,
+                ColorRGBA.WHITE.withAlpha(alpha)
+        );
+
+        float boxSize = 10f;
+        float boxX = panelX + ClickGuiLayout.SETTING_RIGHT - boxSize;
+        float boxY = settingY + 1.5f;
+
+        // Border outline
+        DrawUtil.drawRoundedRect(
+                ctx.getMatrices(),
+                boxX - 0.5f, boxY - 0.5f,
+                boxSize + 1f, boxSize + 1f,
+                BorderRadius.all(2.0f),
+                new ColorRGBA(255, 255, 255, (int) (50 * (alpha / 255f)))
+        );
+
+        // Color preview box — click to open popup
+        DrawUtil.drawRoundedRect(
+                ctx.getMatrices(),
+                boxX, boxY,
+                boxSize, boxSize,
+                BorderRadius.all(2.0f),
+                color.withAlpha(alpha)
+        );
     }
 
     private void renderBooleanSetting(DrawContext context, float panelX, float settingY, int alpha, int colorTheme, double mouseX, double mouseY, BooleanSetting booleanSetting, ClickGuiState state) {
@@ -123,9 +164,9 @@ public class ClickGuiSettingRenderer {
 
         ColorRGBA trackOff = new ColorRGBA(35, 35, 45, alpha);
         ColorRGBA trackOn = themeColor.withAlpha(alpha);
-        int r = (int)(trackOff.getRed() + (trackOn.getRed() - trackOff.getRed()) * progress);
-        int g = (int)(trackOff.getGreen() + (trackOn.getGreen() - trackOff.getGreen()) * progress);
-        int b = (int)(trackOff.getBlue() + (trackOn.getBlue() - trackOff.getBlue()) * progress);
+        int r = (int) (trackOff.getRed() + (trackOn.getRed() - trackOff.getRed()) * progress);
+        int g = (int) (trackOff.getGreen() + (trackOn.getGreen() - trackOff.getGreen()) * progress);
+        int b = (int) (trackOff.getBlue() + (trackOn.getBlue() - trackOff.getBlue()) * progress);
         ColorRGBA trackColor = new ColorRGBA(r, g, b, alpha);
 
         DrawUtil.drawRoundedRect(customDrawContext.getMatrices(), trackX, trackY, trackW, trackH, BorderRadius.all(trackRadius), trackColor);
@@ -158,7 +199,7 @@ public class ClickGuiSettingRenderer {
 
         String valStr = String.format(java.util.Locale.ROOT, "%.1f", floatSetting.getCurrent());
         float valW = Fonts.REGULAR.getWidth(valStr, 6.0f);
-        customDrawContext.drawText(Fonts.REGULAR.getFont(6.0f), valStr, panelX + ClickGuiLayout.SETTING_RIGHT - valW, settingY + 2.0f, ColorRGBA.WHITE.withAlpha((int)(180 * (alpha / 255.0f))));
+        customDrawContext.drawText(Fonts.REGULAR.getFont(6.0f), valStr, panelX + ClickGuiLayout.SETTING_RIGHT - valW, settingY + 2.0f, ColorRGBA.WHITE.withAlpha((int) (180 * (alpha / 255.0f))));
 
         float slX = panelX + ClickGuiLayout.SETTING_LEFT;
         float slY = settingY + 11.0f;
@@ -167,7 +208,6 @@ public class ClickGuiSettingRenderer {
         float rounding = 1.0f;
 
         DrawUtil.drawRoundedRect(customDrawContext.getMatrices(), slX, slY, slW, slH, BorderRadius.all(rounding), new ColorRGBA(10, 10, 15, alpha));
-
         DrawUtil.drawRoundedRect(customDrawContext.getMatrices(), slX, slY, slW * animatedPos, slH, BorderRadius.all(rounding), themeColor.withAlpha(alpha));
 
         float knobX = slX + slW * animatedPos;
@@ -177,7 +217,6 @@ public class ClickGuiSettingRenderer {
 
     private void renderModeSetting(DrawContext context, float panelX, float settingY, int alpha, int colorTheme, double mouseX, double mouseY, ModeSetting modeSetting, ClickGuiState state) {
         CustomDrawContext customDrawContext = CustomDrawContext.of(context);
-        ColorRGBA themeColor = new ColorRGBA(colorTheme);
 
         customDrawContext.drawText(Fonts.REGULAR.getFont(7.0f), modeSetting.getName(), panelX + ClickGuiLayout.SETTING_LEFT + 1.5f, settingY + 1.5f, ColorRGBA.WHITE.withAlpha(alpha));
 
@@ -197,11 +236,9 @@ public class ClickGuiSettingRenderer {
 
             boolean hovered = wtf.dexum.utility.math.MathUtil.isHovered(mouseX, mouseY, x, y, chipW, rowHeight);
             val.getAnimation().update(selected || hovered ? 1.0f : 0.0f);
-            float anim = val.getAnimation().getValue();
 
             DrawUtil.drawBlur(customDrawContext.getMatrices(), x, y, chipW, rowHeight, 15.0f, BorderRadius.all(2.0f), ColorRGBA.WHITE.withAlpha(alpha));
-            ColorRGBA overlay = new ColorRGBA(10, 10, 15, (int)(160 * (alpha / 255.0f)));
-            DrawUtil.drawRoundedRect(customDrawContext.getMatrices(), x, y, chipW, rowHeight, BorderRadius.all(2.0f), overlay);
+            DrawUtil.drawRoundedRect(customDrawContext.getMatrices(), x, y, chipW, rowHeight, BorderRadius.all(2.0f), new ColorRGBA(10, 10, 15, (int) (160 * (alpha / 255.0f))));
 
             ColorRGBA textColor = selected ? ColorRGBA.WHITE.withAlpha(alpha) : new ColorRGBA(180, 180, 180, alpha);
             customDrawContext.drawText(Fonts.REGULAR.getFont(6.0f), val.getName(), x + ClickGuiLayout.CHIP_PADDING_X, y + 3.5f, textColor);
@@ -212,7 +249,6 @@ public class ClickGuiSettingRenderer {
 
     private void renderMultiBooleanSetting(DrawContext context, float panelX, float settingY, int alpha, int colorTheme, double mouseX, double mouseY, MultiBooleanSetting multiBooleanSetting, ClickGuiState state) {
         CustomDrawContext customDrawContext = CustomDrawContext.of(context);
-        ColorRGBA themeColor = new ColorRGBA(colorTheme);
 
         int enabledCount = (int) multiBooleanSetting.getBooleanSettings().stream().filter(MultiBooleanSetting.Value::isEnabled).count();
         int totalCount = multiBooleanSetting.getBooleanSettings().size();
@@ -220,7 +256,7 @@ public class ClickGuiSettingRenderer {
 
         customDrawContext.drawText(Fonts.REGULAR.getFont(7.0f), multiBooleanSetting.getName(), panelX + ClickGuiLayout.SETTING_LEFT + 1.5f, settingY + 1.5f, ColorRGBA.WHITE.withAlpha(alpha));
         float counterW = Fonts.REGULAR.getWidth(counter, 6.5f);
-        customDrawContext.drawText(Fonts.REGULAR.getFont(6.5f), counter, panelX + ClickGuiLayout.SETTING_RIGHT - counterW, settingY + 1.5f, new ColorRGBA(255, 255, 255, (int)(160 * (alpha / 255.0f))));
+        customDrawContext.drawText(Fonts.REGULAR.getFont(6.5f), counter, panelX + ClickGuiLayout.SETTING_RIGHT - counterW, settingY + 1.5f, new ColorRGBA(255, 255, 255, (int) (160 * (alpha / 255.0f))));
 
         float x = panelX + ClickGuiLayout.SETTING_LEFT;
         float y = settingY + 10.0f;
@@ -238,11 +274,9 @@ public class ClickGuiSettingRenderer {
 
             boolean hovered = wtf.dexum.utility.math.MathUtil.isHovered(mouseX, mouseY, x, y, chipW, rowHeight);
             val.getAnimation().update(selected || hovered ? 1.0f : 0.0f);
-            float anim = val.getAnimation().getValue();
 
             DrawUtil.drawBlur(customDrawContext.getMatrices(), x, y, chipW, rowHeight, 15.0f, BorderRadius.all(2.0f), ColorRGBA.WHITE.withAlpha(alpha));
-            ColorRGBA overlay = new ColorRGBA(10, 10, 15, (int)(160 * (alpha / 255.0f)));
-            DrawUtil.drawRoundedRect(customDrawContext.getMatrices(), x, y, chipW, rowHeight, BorderRadius.all(2.0f), overlay);
+            DrawUtil.drawRoundedRect(customDrawContext.getMatrices(), x, y, chipW, rowHeight, BorderRadius.all(2.0f), new ColorRGBA(10, 10, 15, (int) (160 * (alpha / 255.0f))));
 
             ColorRGBA textColor = selected ? ColorRGBA.WHITE.withAlpha(alpha) : new ColorRGBA(180, 180, 180, alpha);
             customDrawContext.drawText(Fonts.REGULAR.getFont(6.0f), val.getName(), x + ClickGuiLayout.CHIP_PADDING_X, y + 3.5f, textColor);
@@ -261,7 +295,7 @@ public class ClickGuiSettingRenderer {
         CustomDrawContext customDrawContext = CustomDrawContext.of(context);
 
         DrawUtil.drawBlur(customDrawContext.getMatrices(), bindX, settingY - 2.5f, bindWidth, 11, 15.0f, BorderRadius.all(2.0f), ColorRGBA.WHITE.withAlpha(alpha));
-        DrawUtil.drawRoundedRect(customDrawContext.getMatrices(), bindX, settingY - 2.5f, bindWidth, 11, BorderRadius.all(2.0f), new ColorRGBA(10, 10, 15, (int)(160 * (alpha / 255.0f))));
+        DrawUtil.drawRoundedRect(customDrawContext.getMatrices(), bindX, settingY - 2.5f, bindWidth, 11, BorderRadius.all(2.0f), new ColorRGBA(10, 10, 15, (int) (160 * (alpha / 255.0f))));
         customDrawContext.drawText(Fonts.REGULAR.getFont(6.0f), bindString, bindX + 3, settingY + 1.0f, ColorRGBA.WHITE.withAlpha(alpha));
         customDrawContext.drawText(Fonts.REGULAR.getFont(6.0f), bindSetting.getName(), panelX + ClickGuiLayout.SETTING_LEFT + 1.5f, settingY + 0.5f, new ColorRGBA(245, 245, 248, alpha));
     }
@@ -280,7 +314,7 @@ public class ClickGuiSettingRenderer {
         float fieldY = settingY + 10.0f;
         float fieldW = ClickGuiLayout.SLIDER_WIDTH;
         float fieldH = 10.0f;
-        DrawUtil.drawRoundedRect(customDrawContext.getMatrices(), fieldX, fieldY, fieldW, fieldH, BorderRadius.all(2.0f), new ColorRGBA(10, 10, 15, (int)(180 * (alpha / 255.0f))));
+        DrawUtil.drawRoundedRect(customDrawContext.getMatrices(), fieldX, fieldY, fieldW, fieldH, BorderRadius.all(2.0f), new ColorRGBA(10, 10, 15, (int) (180 * (alpha / 255.0f))));
 
         String display = value;
         if (editing) {

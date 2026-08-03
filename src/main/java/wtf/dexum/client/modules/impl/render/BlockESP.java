@@ -105,7 +105,6 @@ public final class BlockESP extends Module {
         if (blockEntity instanceof DispenserBlockEntity && !blocks.isEnable("Раздатчик")) return false;
         if (blockEntity instanceof DropperBlockEntity && !blocks.isEnable("Выбрасыватель")) return false;
         if (blockEntity instanceof FurnaceBlockEntity && !blocks.isEnable("Печка")) return false;
-        if (blockEntity instanceof ShulkerBoxBlockEntity && !blocks.isEnable("Шалкер")) return false;
-        return true;
+        return !(blockEntity instanceof ShulkerBoxBlockEntity) || blocks.isEnable("Шалкер");
     }
 }

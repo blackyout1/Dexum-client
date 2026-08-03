@@ -44,6 +44,7 @@ public class DynamicIslandComponent extends DraggableHudElement {
         updateNotifications(now);
 
         ColorRGBA textColor = Dexum.getInstance().getThemeManager().getCurrentTheme().getColor();
+        ColorRGBA hudBg = wtf.dexum.client.modules.impl.render.Interface.getHudColor();
         String time = LocalTime.now().format(TIME_FORMATTER);
         float timeWidth = Fonts.MEDIUM.getWidth(time, 7.2f);
 
@@ -63,7 +64,7 @@ public class DynamicIslandComponent extends DraggableHudElement {
 
         // Фон пилюли
         DrawUtil.drawRoundedRect(ctx.getMatrices(), pillX, pillY, pillWidth, PILL_HEIGHT,
-                BorderRadius.all(7.5f), new ColorRGBA(0, 0, 0, 210));
+                BorderRadius.all(7.5f), hudBg.withAlpha(210));
 
         // Содержимое пилюли
         if (activeNotif != null) {

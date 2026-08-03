@@ -62,8 +62,8 @@ public class InventoryComponent extends DraggableHudElement {
    @Native
    private void renderInventory(CustomDrawContext ctx, float animationValue) {
       if (mc.player == null) {
-         Theme theme = Dexum.getInstance().getThemeManager().getCurrentTheme();
-         ColorRGBA bgColor = theme.getForegroundColor();
+         ColorRGBA hudC = wtf.dexum.client.modules.impl.render.Interface.getHudColor();
+         ColorRGBA bgColor = hudC;
          ctx.getMatrices().push();
          ctx.getMatrices().translate(this.getX() + this.lastWidth / 2.0F, this.getY() + this.lastHeight / 2.0F, 0.0F);
          ctx.getMatrices().scale(animationValue, animationValue, 1.0F);
@@ -74,9 +74,9 @@ public class InventoryComponent extends DraggableHudElement {
          Font countFont = Fonts.MEDIUM.getFont(6.0F);
          float slotSize = 20.0F;
          float borderRadius = 4.0F;
-         Theme theme = Dexum.getInstance().getThemeManager().getCurrentTheme();
-         ColorRGBA graySlotColor = theme.getForegroundColor();
-         ColorRGBA themeSlotColor = theme.getForegroundLight();
+         ColorRGBA hudC = wtf.dexum.client.modules.impl.render.Interface.getHudColor();
+         ColorRGBA graySlotColor = hudC;
+         ColorRGBA themeSlotColor = hudC;
          int columns = 9;
          int rows = 3;
          float gridWidth = (float)columns * slotSize;
@@ -113,8 +113,8 @@ public class InventoryComponent extends DraggableHudElement {
             }
          }
 
-         ctx.drawRoundedBorder(this.getX(), this.getY(), gridWidth, gridHeight, 0.1F, BorderRadius.all(4.0F), theme.getForegroundStroke());
-         DrawUtil.drawRoundedCorner(ctx.getMatrices(), this.getX(), this.getY(), gridWidth, gridHeight, 0.1F, 20.0F, theme.getColor(), BorderRadius.all(4.0F));
+         ctx.drawRoundedBorder(this.getX(), this.getY(), gridWidth, gridHeight, 0.1F, BorderRadius.all(4.0F), hudC);
+         DrawUtil.drawRoundedCorner(ctx.getMatrices(), this.getX(), this.getY(), gridWidth, gridHeight, 0.1F, 20.0F, hudC, BorderRadius.all(4.0F));
          ctx.getMatrices().pop();
       }
    }

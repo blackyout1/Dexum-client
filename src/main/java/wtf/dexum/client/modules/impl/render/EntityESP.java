@@ -82,9 +82,9 @@ public final class EntityESP extends Module {
                 continue;
             }
 
-            double x = MathHelper.lerp((double)tickDelta, entity.lastRenderX, entity.getX());
-            double y = MathHelper.lerp((double)tickDelta, entity.lastRenderY, entity.getY());
-            double z = MathHelper.lerp((double)tickDelta, entity.lastRenderZ, entity.getZ());
+            double x = MathHelper.lerp(tickDelta, entity.lastRenderX, entity.getX());
+            double y = MathHelper.lerp(tickDelta, entity.lastRenderY, entity.getY());
+            double z = MathHelper.lerp(tickDelta, entity.lastRenderZ, entity.getZ());
 
             Box localBox = entity.getBoundingBox().offset(-entity.getX(), -entity.getY(), -entity.getZ());
             Render3DUtil.drawBox(localBox.offset(x, y, z), color, 1.3f, true, true, false);
@@ -106,9 +106,9 @@ public final class EntityESP extends Module {
                 continue;
             }
 
-            double x = MathHelper.lerp((double)tickDelta, entity.lastRenderX, entity.getX());
-            double y = MathHelper.lerp((double)tickDelta, entity.lastRenderY, entity.getY()) + (double)entity.getHeight() + 0.2D;
-            double z = MathHelper.lerp((double)tickDelta, entity.lastRenderZ, entity.getZ());
+            double x = MathHelper.lerp(tickDelta, entity.lastRenderX, entity.getX());
+            double y = MathHelper.lerp(tickDelta, entity.lastRenderY, entity.getY()) + (double)entity.getHeight() + 0.2D;
+            double z = MathHelper.lerp(tickDelta, entity.lastRenderZ, entity.getZ());
 
             if (!mc.getEntityRenderDispatcher().camera.isThirdPerson()) {
                 Vec3d cameraPos = mc.getEntityRenderDispatcher().camera.getPos();
@@ -138,7 +138,7 @@ public final class EntityESP extends Module {
             float posY = (float)(position.y - 11.0D);
             float hp = ScoreboardHealth.INSTANCE.isEnabled() && entity != mc.player ? PlayerIntersectionUtil.getHealth(entity) : entity.getHealth();
             Text name = entity == mc.player && NameProtect.INSTANCE.isEnabled() ? Text.literal(NameProtect.getCustomName()) : ReplaceUtil.replaceSymbols(entity.getDisplayName());
-            Text nameWithHp = ((Text)name).copy().append(Text.literal(" [").setStyle(Style.EMPTY.withColor(Formatting.GRAY))).append(Text.literal(String.valueOf((int)hp)).setStyle(Style.EMPTY.withColor(Formatting.RED))).append(Text.literal("]").setStyle(Style.EMPTY.withColor(Formatting.GRAY)));
+            Text nameWithHp = name.copy().append(Text.literal(" [").setStyle(Style.EMPTY.withColor(Formatting.GRAY))).append(Text.literal(String.valueOf((int)hp)).setStyle(Style.EMPTY.withColor(Formatting.RED))).append(Text.literal("]").setStyle(Style.EMPTY.withColor(Formatting.GRAY)));
             float textWidth = Fonts.REGULAR.getWidth(nameWithHp.getString(), 6.5F);
 
             float headSize = 8.0F;
@@ -228,16 +228,15 @@ public final class EntityESP extends Module {
     private void renderItemTags(float tickDelta, EventRender2D e) {
         ColorRGBA themeDark = Dexum.getInstance().getThemeManager().getCurrentTheme().getColor().darker(0.92F).withAlpha(255);
         for (Entity entity : mc.world.getEntities()) {
-            if (!(entity instanceof ItemEntity)) continue;
+            if (!(entity instanceof ItemEntity itemEntity)) continue;
 
-            ItemEntity itemEntity = (ItemEntity) entity;
             if (!ProjectionUtil.canSee(itemEntity.getBoundingBox().getCenter())) {
                 continue;
             }
 
-            double x = MathHelper.lerp((double) tickDelta, entity.lastRenderX, entity.getX());
-            double y = MathHelper.lerp((double) tickDelta, entity.lastRenderY, entity.getY()) + (double) entity.getHeight() + 0.1D;
-            double z = MathHelper.lerp((double) tickDelta, entity.lastRenderZ, entity.getZ());
+            double x = MathHelper.lerp(tickDelta, entity.lastRenderX, entity.getX());
+            double y = MathHelper.lerp(tickDelta, entity.lastRenderY, entity.getY()) + (double) entity.getHeight() + 0.1D;
+            double z = MathHelper.lerp(tickDelta, entity.lastRenderZ, entity.getZ());
 
             if (!mc.getEntityRenderDispatcher().camera.isThirdPerson()) {
                 Vec3d cameraPos = mc.getEntityRenderDispatcher().camera.getPos();

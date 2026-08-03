@@ -33,6 +33,7 @@ public class MenuScreen extends Screen implements IClient {
         this.openAnimation = new Animation(200L, Easing.CUBIC_OUT);
         this.openAnimationMetanoise = new Animation(1000L, Easing.CUBIC_OUT);
         state.refreshModules();
+        renderer.setInputHandler(inputHandler);
     }
 
     @Override

@@ -5,6 +5,7 @@ import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec2f;
 import net.minecraft.util.math.Vec3d;
 import wtf.dexum.Dexum;
 import wtf.dexum.base.events.impl.render.EventRender2D;
@@ -21,6 +22,8 @@ import wtf.dexum.utility.math.ProjectionUtil;
 import wtf.dexum.utility.render.display.base.BorderRadius;
 import wtf.dexum.utility.render.display.base.CustomDrawContext;
 import wtf.dexum.utility.render.display.base.color.ColorRGBA;
+import wtf.dexum.utility.render.display.shader.DrawUtil;
+import net.minecraft.util.math.Vec2f;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -46,6 +49,8 @@ public class NameTags extends Module {
     public BooleanSetting armor = new BooleanSetting("Отображать броню", true);
     public BooleanSetting showMainHand = new BooleanSetting("Правая рука", true);
     public BooleanSetting showOffHand = new BooleanSetting("Левая рука", true);
+    public BooleanSetting crossedArmor = new BooleanSetting("Зачеркнутые броня", false);
+    public BooleanSetting offHandName = new BooleanSetting("Имя предмета левой руки", true);
 
     public NameTags() {
     }
@@ -155,6 +160,10 @@ public class NameTags extends Module {
                             this.drawArmor(ctx, entity, 0, -height / 2.0F - 10.0F, 1.0F);
                         }
 
+                        if (this.crossedArmor.isEnabled()) {
+                            this.drawCrossedArmor(ctx, entity, 0, -height / 2.0F - 24.0F, 1.0F);
+                        }
+
                         ctx.popMatrix();
                     }
                 }
@@ -194,6 +203,54 @@ public class NameTags extends Module {
             ctx.getMatrices().translate(iconX + (boxSizeItem - 9.6F) / 2.0F, iconY + (boxSizeItem - 9.6F) / 2.0F, 0.0D);
             ctx.getMatrices().scale(0.6F * animation, 0.6F * animation, 0.6F * animation);
             ctx.drawItem(stack, 0, 0);
+            ctx.getMatrices().pop();
+            
+            // Рисуем имя предмета для левой руки
+            if (showOffHand.isEnabled() && stack == player.getOffHandStack() && offHandName.isEnabled() && !stack.isEmpty()) {
+                String itemName = stack.getName().getString();
+                float textX = iconX + boxSizeItem / 2.0F - Fonts.MEDIUM.getWidth(itemName, 8.5F) / 2.0F;
+                float textY = iconY + boxSizeItem + 2.0F;
+                ctx.drawText(Fonts.MEDIUM.getFont(8.5F), itemName, textX, textY, ColorRGBA.WHITE);
+            }
+            
+            iconX += boxSizeItem + paddingItem;
+        }
+    }
+
+    private void drawCrossedArmor(CustomDrawContext ctx, PlayerEntity player, float x, float y, float animation) {
+        // Рисуем зачеркнутые предметы над броней (на месте брони рисуем зачеркнутые иконки)
+        if (!crossedArmor.isEnabled()) return;
+        
+        float boxSizeItem = 10.0F;
+        float paddingItem = 1.0F;
+        
+        List<ItemStack> armor = player.getInventory().armor;
+        float iconX = x - (armor.size() * (boxSizeItem + paddingItem) - paddingItem) / 2.0F;
+        float iconY = y;
+        
+        for (int i = 0; i < 4; i++) {
+            ItemStack stack = armor.get(i);
+            ctx.getMatrices().push();
+            ctx.getMatrices().translate(iconX + (boxSizeItem - 9.6F) / 2.0F, iconY + (boxSizeItem - 9.6F) / 2.0F, 0.0D);
+            ctx.getMatrices().scale(0.6F * animation, 0.6F * animation, 0.6F * animation);
+            
+            // Рисуем черный фон
+            ctx.drawRect(0, 0, 16, 16, new ColorRGBA(0, 0, 0, 200));
+            
+            // Рисуем красный крестик через DrawUtil
+            DrawUtil.drawLine(
+                ctx.getMatrices(), 
+                new Vec2f(1, 1), 
+                new Vec2f(15, 15), 
+                new ColorRGBA(255, 0, 0, 255)
+            );
+            DrawUtil.drawLine(
+                ctx.getMatrices(), 
+                new Vec2f(15, 1), 
+                new Vec2f(1, 15), 
+                new ColorRGBA(255, 0, 0, 255)
+            );
+            
             ctx.getMatrices().pop();
             iconX += boxSizeItem + paddingItem;
         }

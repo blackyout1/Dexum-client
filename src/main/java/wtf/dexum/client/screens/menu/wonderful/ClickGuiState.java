@@ -156,7 +156,6 @@ public class ClickGuiState {
         animation.update(isModuleOpen(module) ? 1f : 0f);
         return animation.getValue();
     }
-
     public boolean isModuleOpen(Module module) {
         return moduleOpenState.getOrDefault(module, false);
     }
@@ -233,4 +232,5 @@ public class ClickGuiState {
         themeDropdownAnimation.update(themeDropdownOpen);
         return themeDropdownAnimation.getValue();
     }
+
 }

@@ -111,9 +111,8 @@ public final class Predictions extends Module {
             final Vec3d finalPos = pos;
             boolean inEntity = PlayerIntersectionUtil.streamEntities().filter((ent) -> {
                boolean var10000;
-               if (ent instanceof LivingEntity) {
-                  LivingEntity living = (LivingEntity)ent;
-                  if (living != mc.player && living.isAlive()) {
+               if (ent instanceof LivingEntity living) {
+                   if (living != mc.player && living.isAlive()) {
                      var10000 = true;
                      return var10000;
                   }
@@ -142,7 +141,7 @@ public final class Predictions extends Module {
    }
 
    public Vec3d calculateMotion(Entity entity, Vec3d prevPos, Vec3d motion) {
-      boolean isInWater = ((ClientWorld)Objects.requireNonNull(mc.world)).getBlockState(BlockPos.ofFloored(prevPos)).getFluidState().isIn(FluidTags.WATER);
+      boolean isInWater = Objects.requireNonNull(mc.world).getBlockState(BlockPos.ofFloored(prevPos)).getFluidState().isIn(FluidTags.WATER);
 
       float multiply;
       if (entity instanceof TridentEntity) {
@@ -153,7 +152,7 @@ public final class Predictions extends Module {
          multiply = isInWater ? 0.8F : 0.99F;
       }
 
-      return motion.multiply((double)multiply).add(0.0D, -entity.getFinalGravity(), 0.0D);
+      return motion.multiply(multiply).add(0.0D, -entity.getFinalGravity(), 0.0D);
    }
 
    private void BreakingBad(Entity entity, Vec3d pos, int ticks) {
@@ -172,7 +171,7 @@ public final class Predictions extends Module {
       return posChange || itemEntityCheck;
    }
 
-   private static record Point(ItemStack stack, Vec3d pos, int ticks) {
+   private record Point(ItemStack stack, Vec3d pos, int ticks) {
       private Point(ItemStack stack, Vec3d pos, int ticks) {
          this.stack = stack;
          this.pos = pos;

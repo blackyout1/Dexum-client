@@ -70,7 +70,8 @@ public class TargetHudComponent extends DraggableHudElement {
         float posY = this.getY();
         float width = 100.0F;
         float height = 36.0F;
-        Theme theme = Dexum.getInstance().getThemeManager().getCurrentTheme();
+        ColorRGBA hudC = Dexum.getInstance().getThemeManager().getCurrentTheme().getColor();
+        ColorRGBA hudC2 = Dexum.getInstance().getThemeManager().getCurrentTheme().getSecondColor();
         float hp = ScoreboardHealth.INSTANCE.isEnabled() ? PlayerIntersectionUtil.getHealth(target) : target.getHealth();
 
         this.healthAnimation.update(hp / target.getMaxHealth());
@@ -122,23 +123,23 @@ public class TargetHudComponent extends DraggableHudElement {
         float barHeight = 5.5F;
 
         DrawUtil.drawRoundedRect(ctx.getMatrices(), barX, barY, barWidth, barHeight, BorderRadius.all(0.5F),
-                theme.getSecondColor().darker(0.5F).withAlpha(a),
-                theme.getSecondColor().darker(0.5F).withAlpha(a),
-                theme.getColor().darker(0.5F).withAlpha(a),
-                theme.getColor().darker(0.5F).withAlpha(a));
+                hudC2.darker(0.5F).withAlpha(a),
+                hudC2.darker(0.5F).withAlpha(a),
+                hudC.darker(0.5F).withAlpha(a),
+                hudC.darker(0.5F).withAlpha(a));
 
         DrawUtil.drawRoundedRect(ctx.getMatrices(), barX, barY, MathHelper.clamp(barWidth * this.outdatedHealthAnimation.getValue(), 0.0F, barWidth), barHeight, BorderRadius.all(0.5F),
-                theme.getSecondColor().darker(0.35F).withAlpha(a),
-                theme.getSecondColor().darker(0.35F).withAlpha(a),
-                theme.getColor().darker(0.35F).withAlpha(a),
-                theme.getColor().darker(0.35F).withAlpha(a));
+                hudC2.darker(0.35F).withAlpha(a),
+                hudC2.darker(0.35F).withAlpha(a),
+                hudC.darker(0.35F).withAlpha(a),
+                hudC.darker(0.35F).withAlpha(a));
 
         if (this.gappleAnimation.getValue() < this.healthAnimation.getValue()) {
             DrawUtil.drawRoundedRect(ctx.getMatrices(), barX, barY, MathHelper.clamp(barWidth * this.healthAnimation.getValue(), 0.0F, barWidth), barHeight, BorderRadius.all(0.5F),
-                    theme.getSecondColor().withAlpha(a),
-                    theme.getSecondColor().withAlpha(a),
-                    theme.getColor().withAlpha(a),
-                    theme.getColor().withAlpha(a));
+                    hudC2.withAlpha(a),
+                    hudC2.withAlpha(a),
+                    hudC.withAlpha(a),
+                    hudC.withAlpha(a));
         }
 
         DrawUtil.drawRoundedRect(ctx.getMatrices(), barX, barY, MathHelper.clamp(barWidth * this.gappleAnimation.getValue(), 0.0F, barWidth), barHeight, BorderRadius.all(0.5F),
@@ -161,7 +162,8 @@ public class TargetHudComponent extends DraggableHudElement {
         float posY = this.getY();
         float width = 100.0F;
         float height = 38.0F;
-        Theme theme = Dexum.getInstance().getThemeManager().getCurrentTheme();
+        ColorRGBA hudC = Dexum.getInstance().getThemeManager().getCurrentTheme().getColor();
+        ColorRGBA hudC2 = Dexum.getInstance().getThemeManager().getCurrentTheme().getSecondColor();
         float hp = ScoreboardHealth.INSTANCE.isEnabled() ? PlayerIntersectionUtil.getHealth(target) : target.getHealth();
         this.healthAnimation.update(hp / target.getMaxHealth());
         if (this.outdatedHealthAnimation.getValue() < this.healthAnimation.getValue()) {
@@ -214,12 +216,12 @@ public class TargetHudComponent extends DraggableHudElement {
         float barWidth = width - barPadding * 2.0F;
         float barHeight = 5.0F;
 
-        DrawUtil.drawRoundedRect(ctx.getMatrices(), barX, barY, barWidth, barHeight, BorderRadius.all(0.5F), theme.getSecondColor().darker(0.5F).withAlpha(animation * 255.0F), theme.getSecondColor().darker(0.5F).withAlpha(animation * 255.0F), theme.getColor().darker(0.5F).withAlpha(animation * 255.0F), theme.getColor().darker(0.5F).withAlpha(animation * 255.0F));
+        DrawUtil.drawRoundedRect(ctx.getMatrices(), barX, barY, barWidth, barHeight, BorderRadius.all(0.5F), hudC2.darker(0.5F).withAlpha(animation * 255.0F), hudC2.darker(0.5F).withAlpha(animation * 255.0F), hudC.darker(0.5F).withAlpha(animation * 255.0F), hudC.darker(0.5F).withAlpha(animation * 255.0F));
 
-        DrawUtil.drawRoundedRect(ctx.getMatrices(), barX, barY, MathHelper.clamp(barWidth * this.outdatedHealthAnimation.getValue(), 0.0F, barWidth), barHeight, BorderRadius.all(0.5F), theme.getSecondColor().darker(0.35F).withAlpha(animation * 255.0F), theme.getSecondColor().darker(0.35F).withAlpha(animation * 255.0F), theme.getColor().darker(0.35F).withAlpha(animation * 255.0F), theme.getColor().darker(0.35F).withAlpha(animation * 255.0F));
+        DrawUtil.drawRoundedRect(ctx.getMatrices(), barX, barY, MathHelper.clamp(barWidth * this.outdatedHealthAnimation.getValue(), 0.0F, barWidth), barHeight, BorderRadius.all(0.5F), hudC2.darker(0.35F).withAlpha(animation * 255.0F), hudC2.darker(0.35F).withAlpha(animation * 255.0F), hudC.darker(0.35F).withAlpha(animation * 255.0F), hudC.darker(0.35F).withAlpha(animation * 255.0F));
 
         if (this.gappleAnimation.getValue() < this.healthAnimation.getValue()) {
-            DrawUtil.drawRoundedRect(ctx.getMatrices(), barX, barY, MathHelper.clamp(barWidth * this.healthAnimation.getValue(), 0.0F, barWidth), barHeight, BorderRadius.all(0.5F), theme.getSecondColor().withAlpha(animation * 255.0F), theme.getSecondColor().withAlpha(animation * 255.0F), theme.getColor().withAlpha(animation * 255.0F), theme.getColor().withAlpha(animation * 255.0F));
+            DrawUtil.drawRoundedRect(ctx.getMatrices(), barX, barY, MathHelper.clamp(barWidth * this.healthAnimation.getValue(), 0.0F, barWidth), barHeight, BorderRadius.all(0.5F), hudC2.withAlpha(animation * 255.0F), hudC2.withAlpha(animation * 255.0F), hudC.withAlpha(animation * 255.0F), hudC.withAlpha(animation * 255.0F));
         }
 
         DrawUtil.drawRoundedRect(ctx.getMatrices(), barX, barY, MathHelper.clamp(barWidth * this.gappleAnimation.getValue(), 0.0F, barWidth), barHeight, BorderRadius.all(0.5F), new ColorRGBA(255, 209, 0, animation * 255.0F), new ColorRGBA(255, 209, 0, animation * 255.0F), new ColorRGBA(255, 246, 20, animation * 255.0F), new ColorRGBA(255, 246, 20, animation * 255.0F));

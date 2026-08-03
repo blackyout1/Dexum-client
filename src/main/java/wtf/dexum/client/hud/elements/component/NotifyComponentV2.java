@@ -64,7 +64,6 @@ public class NotifyComponentV2 extends DraggableHudElement {
         this.toggleAnimation.update(mc.currentScreen instanceof ChatScreen || !this.notifications.isEmpty());
         if (this.toggleAnimation.getValue() < 0.01F) return;
 
-        Theme theme = Dexum.getInstance().getThemeManager().getCurrentTheme();
         Font textFont = Fonts.REGULAR.getFont(6.75F);
         float notificationHeight = 18.0F;
 
@@ -76,7 +75,7 @@ public class NotifyComponentV2 extends DraggableHudElement {
         for (BaseNotification n : Lists.reverse(this.notifications)) {
             float anim = n.alphaAnimation.getValue();
             if (anim > 0.001F) {
-                float currentW = renderNotification(ctx, this.getX(), currentY, textFont, theme, notificationHeight, n);
+                float currentW = renderNotification(ctx, this.getX(), currentY, textFont, notificationHeight, n);
                 maxW = Math.max(maxW, currentW);
                 if (bottom) {
                     currentY -= (notificationHeight + 4.0F) * anim;
@@ -89,7 +88,7 @@ public class NotifyComponentV2 extends DraggableHudElement {
         this.height = Math.abs(currentY - this.getY());
     }
 
-    private float renderNotification(CustomDrawContext ctx, float x, float y, Font textFont, Theme theme, float height, BaseNotification n) {
+    private float renderNotification(CustomDrawContext ctx, float x, float y, Font textFont, float height, BaseNotification n) {
         float alpha = n.alphaAnimation.getValue() * this.toggleAnimation.getValue();
         if (alpha < 0.001F) return 0.0F;
 
@@ -97,7 +96,7 @@ public class NotifyComponentV2 extends DraggableHudElement {
         String mainText = "";
         String statusText = "";
         ColorRGBA statusColor = ColorRGBA.WHITE;
-        ColorRGBA iconColor = theme.getColor().withAlpha((int)(255 * alpha));
+        ColorRGBA iconColor = Dexum.getInstance().getThemeManager().getCurrentTheme().getColor().withAlpha((int)(255 * alpha));
 
         if (n instanceof ModuleNotification mn) {
             icon = mn.enabled ? "J" : "K";

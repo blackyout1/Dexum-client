@@ -47,6 +47,7 @@ public class HootBarComponent extends DraggableHudElement {
         float posX = this.getX();
         float posY = this.getY();
         Theme theme = Dexum.getInstance().getThemeManager().getCurrentTheme();
+        ColorRGBA hudC = wtf.dexum.client.modules.impl.render.Interface.getHudColor();
         if (mc.interactionManager.hasCreativeInventory()) {
             this.renderHeldItemTooltip(ctx, posY - 35.0F);
             this.renderOverlayMessage(ctx, mc.getRenderTickCounter(), posY - 35.0F - 9.0F);
@@ -54,14 +55,14 @@ public class HootBarComponent extends DraggableHudElement {
             int k = mc.player.experienceLevel;
             ctx.drawText(font, String.valueOf(k), posX + this.width / 2.0F - font.width(String.valueOf(k)) / 2.0F, posY - 15.0F + font.height() / 2.0F, ColorRGBA.GREEN);
             DrawUtil.drawBlurHud(ctx.getMatrices(), this.x, this.y, this.width, this.height, 21.0F, BorderRadius.all(4.0F), ColorRGBA.WHITE);
-            ctx.drawRoundedRect(posX, posY, this.width, 24.0F, BorderRadius.all(4.0F), theme.getForegroundColor());
+            ctx.drawRoundedRect(posX, posY, this.width, 24.0F, BorderRadius.all(4.0F), hudC);
             ItemStack offHand = mc.player.getOffHandStack();
             if (!offHand.isEmpty()) {
                 float xSlot = posX - this.height - 12.0F;
                 DrawUtil.drawBlurHud(ctx.getMatrices(), xSlot, posY, this.height, this.height, 21.0F, BorderRadius.all(4.0F), ColorRGBA.WHITE);
-                ctx.drawRoundedRect(xSlot, posY, this.height, this.height, BorderRadius.all(4.0F), theme.getForegroundColor());
-                ctx.drawRoundedBorder(xSlot, posY, this.height, this.height, 0.1F, BorderRadius.all(4.0F), theme.getForegroundStroke());
-                DrawUtil.drawRoundedCorner(ctx.getMatrices(), posX - this.height - 12.0F, posY, this.height, this.height, 0.1F, 15.0F, theme.getColor(), BorderRadius.all(4.0F));
+                ctx.drawRoundedRect(xSlot, posY, this.height, this.height, BorderRadius.all(4.0F), hudC);
+                ctx.drawRoundedBorder(xSlot, posY, this.height, this.height, 0.1F, BorderRadius.all(4.0F), hudC);
+                DrawUtil.drawRoundedCorner(ctx.getMatrices(), posX - this.height - 12.0F, posY, this.height, this.height, 0.1F, 15.0F, hudC, BorderRadius.all(4.0F));
                 ctx.pushMatrix();
                 ctx.getMatrices().translate((double)xSlot + 5.6, (double)posY + 5.6, (double)1.0F);
                 ctx.getMatrices().scale(0.8F, 0.8F, 0.8F);
@@ -74,7 +75,7 @@ public class HootBarComponent extends DraggableHudElement {
                     float countWidth = font.width(countText);
                     float countX = xSlot + 24.0F - countWidth - 1.0F;
                     float countY = posY + 24.0F - font.height() - 3.0F;
-                    ctx.drawText(font, countText, countX, countY, theme.getGray());
+                    ctx.drawText(font, countText, countX, countY, hudC);
                 }
             }
 
@@ -85,8 +86,8 @@ public class HootBarComponent extends DraggableHudElement {
                 xSlot += this.height;
             }
 
-            ctx.drawRoundedBorder(this.x, this.y, this.width, 24.0F, 0.1F, BorderRadius.all(4.0F), theme.getForegroundStroke());
-            DrawUtil.drawRoundedCorner(ctx.getMatrices(), this.x, this.y, this.width, 24.0F, 0.1F, 15.0F, theme.getColor(), BorderRadius.all(4.0F));
+            ctx.drawRoundedBorder(this.x, this.y, this.width, 24.0F, 0.1F, BorderRadius.all(4.0F), hudC);
+            DrawUtil.drawRoundedCorner(ctx.getMatrices(), this.x, this.y, this.width, 24.0F, 0.1F, 15.0F, hudC, BorderRadius.all(4.0F));
         } else if (mc.interactionManager.hasStatusBars()) {
             ctx.pushMatrix();
             ctx.getMatrices().translate((float)(-(ctx.getScaledWindowWidth() / 2 - 91)), (float)(-(ctx.getScaledWindowHeight() - 39)), 0.0F);
@@ -109,9 +110,9 @@ public class HootBarComponent extends DraggableHudElement {
             if (!offHand.isEmpty()) {
                 float xSlot = posX - this.height - 12.0F;
                 DrawUtil.drawBlurHud(ctx.getMatrices(), xSlot, posY, this.height, this.height, 21.0F, BorderRadius.all(4.0F), ColorRGBA.WHITE);
-                ctx.drawRoundedRect(xSlot, posY, this.height, this.height, BorderRadius.all(4.0F), theme.getForegroundColor());
-                ctx.drawRoundedBorder(xSlot, posY, this.height, this.height, 0.1F, BorderRadius.all(4.0F), theme.getForegroundStroke());
-                DrawUtil.drawRoundedCorner(ctx.getMatrices(), posX - this.height - 12.0F, posY, this.height, this.height, 0.1F, 15.0F, theme.getColor(), BorderRadius.all(4.0F));
+                ctx.drawRoundedRect(xSlot, posY, this.height, this.height, BorderRadius.all(4.0F), hudC);
+                ctx.drawRoundedBorder(xSlot, posY, this.height, this.height, 0.1F, BorderRadius.all(4.0F), hudC);
+                DrawUtil.drawRoundedCorner(ctx.getMatrices(), posX - this.height - 12.0F, posY, this.height, this.height, 0.1F, 15.0F, hudC, BorderRadius.all(4.0F));
                 ctx.pushMatrix();
                 ctx.getMatrices().translate((double)xSlot + 5.6, (double)posY + 5.6, (double)1.0F);
                 ctx.getMatrices().scale(0.8F, 0.8F, 0.8F);
@@ -124,7 +125,7 @@ public class HootBarComponent extends DraggableHudElement {
                     float countWidth = font.width(countText);
                     float countX = xSlot + 24.0F - countWidth - 1.0F;
                     float countY = posY + 24.0F - font.height() - 3.0F;
-                    ctx.drawText(font, countText, countX, countY, theme.getGray());
+                    ctx.drawText(font, countText, countX, countY, hudC);
                 }
             }
 
@@ -160,7 +161,6 @@ public class HootBarComponent extends DraggableHudElement {
             if (l > 0) {
                 context.getMatrices().push();
                 context.getMatrices().translate((float)j, (float)k, 0.0F);
-                Theme theme = Dexum.getInstance().getThemeManager().getCurrentTheme();
                 context.drawTextWithBackground(mc.textRenderer, mutableText, 0, 0, i, ColorHelper.withAlpha(l, -1));
                 context.getMatrices().pop();
             }
@@ -218,8 +218,8 @@ public class HootBarComponent extends DraggableHudElement {
             this.animationEnable.setDuration(80L);
             Font font = Fonts.MEDIUM.getFont(6.0F);
             this.animationEnable.update(this.index == IMinecraft.mc.player.getInventory().selectedSlot ? 1.0F : 0.0F);
-            ColorRGBA bgColor = ColorUtil.interpolate(ColorRGBA.TRANSPARENT, theme.getColor(), this.animationEnable.getValue());
-            ColorRGBA textColor = theme.getGray().mix(theme.getWhite(), this.animationEnable.getValue());
+            ColorRGBA bgColor = ColorUtil.interpolate(ColorRGBA.TRANSPARENT, wtf.dexum.client.modules.impl.render.Interface.getHudColor(), this.animationEnable.getValue());
+            ColorRGBA textColor = wtf.dexum.client.modules.impl.render.Interface.getHudColor().mix(wtf.dexum.client.modules.impl.render.Interface.getHudColor(), this.animationEnable.getValue());
             ItemStack stack = IMinecraft.mc.player.getInventory().main.get(this.index);
             ctx.drawRoundedRect(x, y, 24.0F, 24.0F, this.borderRadius, bgColor);
             ctx.pushMatrix();

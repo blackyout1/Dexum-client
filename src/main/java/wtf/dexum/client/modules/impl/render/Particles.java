@@ -131,7 +131,7 @@ public class Particles extends Module implements IMinecraft {
             if (target != null) {
                 for (int i = 0; i < 35; i++) {
                     double targetX = target.getX() + random(-0.4f, 0.4f);
-                    double targetY = target.getY() + random(-0.4f, (float) target.getHeight() + 0.4f);
+                    double targetY = target.getY() + random(-0.4f, target.getHeight() + 0.4f);
                     double targetZ = target.getZ() + random(-0.4f, 0.4f);
 
                     if (isPositionInBlock(new Vec3d(targetX, targetY, targetZ))) continue;
@@ -244,7 +244,7 @@ public class Particles extends Module implements IMinecraft {
             double posX = mc.player.getX() + direction.x * distanceBehind + offsetX;
             double posY = mc.player.isGliding()
                     ? mc.player.getY() + mc.player.getHeight() / 2.0 + direction.y * distanceBehind + random(-0.35f, 0.35f)
-                    : mc.player.getY() + random(0.2f, (float) mc.player.getHeight() + 0.1f);
+                    : mc.player.getY() + random(0.2f, mc.player.getHeight() + 0.1f);
             double posZ = mc.player.getZ() + direction.z * distanceBehind + offsetZ;
 
             if (!isPositionInBlock(new Vec3d(posX, posY, posZ))) {

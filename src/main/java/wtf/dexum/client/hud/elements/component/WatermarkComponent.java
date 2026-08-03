@@ -6,13 +6,29 @@ import wtf.dexum.base.animations.base.Easing;
 import wtf.dexum.base.font.Fonts;
 import wtf.dexum.base.theme.Theme;
 import wtf.dexum.client.hud.elements.draggable.DraggableHudElement;
+import wtf.dexum.client.modules.api.setting.impl.BooleanSetting;
 import wtf.dexum.utility.render.display.base.BorderRadius;
 import wtf.dexum.utility.render.display.base.CustomDrawContext;
 import wtf.dexum.utility.render.display.base.color.ColorRGBA;
 import wtf.dexum.utility.render.display.shader.DrawUtil;
 import wtf.dexum.client.modules.impl.misc.NameProtect;
 
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+
 public class WatermarkComponent extends DraggableHudElement {
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
+    
+    // Настройки
+    private final BooleanSetting showFps = new BooleanSetting("FPS", "Частота кадров", true);
+    private final BooleanSetting showPing = new BooleanSetting("Ping", "Боковое отображение", true);
+    private final BooleanSetting showTime = new BooleanSetting("Time", "Текущее время", true);
+    private final BooleanSetting showCoords = new BooleanSetting("Coords", "Координаты", true);
+    private final BooleanSetting showTps = new BooleanSetting("TPS", "Задержка сервера", true);
+    private final BooleanSetting showBps = new BooleanSetting("BPS", "Скорость игрока", true);
+    private final BooleanSetting showUsername = new BooleanSetting("Username", "Логин в клиенте", false);
     private final Animation widthAnimation;
     private final boolean compact;
 
@@ -26,19 +42,18 @@ public class WatermarkComponent extends DraggableHudElement {
         if (mc.player != null) {
             float posX = this.getX();
             float posY = this.getY();
-            Theme theme = Dexum.getInstance().getThemeManager().getCurrentTheme();
-            ColorRGBA themeColor = theme.getColor();
+            ColorRGBA themeColor = Dexum.getInstance().getThemeManager().getCurrentTheme().getColor();
+            ColorRGBA hudBg = wtf.dexum.client.modules.impl.render.Interface.getHudColor();
 
             if (compact) {
-                renderCompact(ctx, posX, posY, themeColor);
+                renderCompact(ctx, posX, posY, themeColor, hudBg);
             } else {
-                renderClassic(ctx, posX, posY, themeColor);
+                renderClassic(ctx, posX, posY, themeColor, hudBg);
             }
         }
     }
 
-    private void renderCompact(CustomDrawContext ctx, float x, float y, ColorRGBA themeColor) {
-        Theme theme = Dexum.getInstance().getThemeManager().getCurrentTheme();
+    private void renderCompact(CustomDrawContext ctx, float x, float y, ColorRGBA themeColor, ColorRGBA hudBg) {
 
         float circleSize = 32.0F;
         float circleRadius = circleSize / 2.0F;
@@ -57,7 +72,7 @@ public class WatermarkComponent extends DraggableHudElement {
         float contentWidth = Math.max(titleWidth, subtitleWidth);
         float cardWidth = textOffsetX + contentWidth + rightPadding;
 
-        ColorRGBA bg = ColorRGBA.BLACK;
+        ColorRGBA bg = hudBg;
 
         // Рисуем кружок и плашку
         DrawUtil.drawRoundedRect(ctx.getMatrices(), x, y, circleSize, circleSize, BorderRadius.all(circleRadius), bg);
@@ -75,7 +90,7 @@ public class WatermarkComponent extends DraggableHudElement {
         float verticalOffset = 3F;          // <-- МЕНЯЙ ЭТО ЗНАЧЕНИЕ, ЕСЛИ БУКВА НЕ ПО ЦЕНТРУ
         float logoY = y + (circleSize - logoSize) / 2.0F + verticalOffset;
 
-        ctx.drawText(Fonts.BOLD.getFont(logoSize), logo, logoX, logoY, theme.getColor());
+        ctx.drawText(Fonts.BOLD.getFont(logoSize), logo, logoX, logoY, themeColor);
         // ========================================================================
 
         // Подпись (название клиента и имя игрока)
@@ -89,54 +104,122 @@ public class WatermarkComponent extends DraggableHudElement {
         this.height = circleSize;
     }
 
-    private void renderClassic(CustomDrawContext ctx, float posX, float posY, ColorRGBA themeColor) {
-        String name = NameProtect.getWatermarkName();
-        String fpsVal = String.valueOf(mc.getCurrentFps());
-        String ip = mc.getCurrentServerEntry() != null ? mc.getCurrentServerEntry().address : "Singleplayer";
-        String version = " 1.21.4";
+    private void renderClassic(CustomDrawContext ctx, float posX, float posY, ColorRGBA themeColor, ColorRGBA hudBg) {
+        if (mc.player == null) return;
 
-        float padding = 6.0F;
-        float spacing = 12.0F;
-        float interSectionGap = 8.0F;
+        // Собираем элементы для отображения
+        List<String> items = new ArrayList<>();
+        
+        // Всегда показываем логотип первым
+        items.add("LOGO");
+        
+        if (showUsername.isEnabled()) {
+            items.add(NameProtect.getWatermarkName());
+        }
+        
+        if (showPing.isEnabled()) {
+            items.add(getPlayerPing() + " ms");
+        }
+        
+        if (showTime.isEnabled()) {
+            items.add(LocalTime.now().format(TIME_FORMATTER));
+        }
+        
+        if (showFps.isEnabled()) {
+            items.add(mc.getCurrentFps() + " FPS");
+        }
+        
+        if (showCoords.isEnabled()) {
+            items.add(String.format("x %d y %d z %d", 
+                (int)mc.player.getX(), 
+                (int)mc.player.getY(), 
+                (int)mc.player.getZ()));
+        }
+        
+        if (showTps.isEnabled()) {
+            items.add("20.0 TPS");
+        }
+        
+        if (showBps.isEnabled()) {
+            items.add("0.00 BPS");
+        }
 
-        float logoW = Fonts.MEDIUM.getWidth("dexum " + version, 7.5F);
-        float nameW = Fonts.MEDIUM.getWidth(name, 7.2F) + 10.5F;
-        float fpsW = Fonts.MEDIUM.getWidth(fpsVal + " fps", 7.2F) + 10.0F;
-        float ipW = Fonts.MEDIUM.getWidth(ip, 7.2F) + 10.0F;
+        if (items.size() <= 1) { // только логотип
+            this.width = 0;
+            this.height = 0;
+            return;
+        }
 
-        float targetWidth = padding * 2 + logoW + 8.0F + nameW + interSectionGap + fpsW + interSectionGap + ipW + 2.0F;
-        this.widthAnimation.update(targetWidth);
-        float currentWidth = this.widthAnimation.getValue();
-        float totalHeight = 18.0F;
-        float rounding = 4.0F;
+        // Параметры отрисовки
+        float fontSize = 7.5f;
+        float logoFontSize = 9.0f;
+        float capsuleHeight = 16.0f;
+        float capsulePadding = 7.0f;
+        float capsuleGap = 4.0f;
+        float rowGap = 4.0f;
 
-        DrawUtil.drawBlur(ctx.getMatrices(), posX, posY, currentWidth, totalHeight, 15.0F, BorderRadius.all(rounding), ColorRGBA.WHITE.withAlpha(255));
+        // Рисуем все элементы как отдельные капсулы
+        float currentX = posX;
+        float currentY = posY;
+        float maxWidth = 0;
+        int itemsPerRow = 4;
+        
+        for (int i = 0; i < items.size(); i++) {
+            String text = items.get(i);
+            float textWidth;
+            float capsuleWidth;
+            
+            if (text.equals("LOGO")) {
+                // Для логотипа: буква D + текст "Dexum"
+                float dWidth = Fonts.SEMIBOLD.getWidth("D", logoFontSize);
+                float dexumWidth = Fonts.MEDIUM.getWidth("exum", fontSize);
+                capsuleWidth = dWidth + dexumWidth + capsulePadding * 2;
+            } else {
+                textWidth = Fonts.MEDIUM.getWidth(text, fontSize);
+                capsuleWidth = textWidth + capsulePadding * 2;
+            }
+            
+            // Рисуем капсулу
+            DrawUtil.drawRoundedRect(ctx.getMatrices(), currentX, currentY, capsuleWidth, capsuleHeight,
+                BorderRadius.all(capsuleHeight / 2), hudBg.withAlpha(200));
+            
+            // Рисуем содержимое
+            if (text.equals("LOGO")) {
+                // Рисуем букву "D" цветом темы
+                float dWidth = Fonts.SEMIBOLD.getWidth("D", logoFontSize);
+                float logoY = currentY + (capsuleHeight - logoFontSize) / 2 + 1.0f;
+                ctx.drawText(Fonts.SEMIBOLD.getFont(logoFontSize), "D", 
+                    currentX + capsulePadding, logoY, themeColor);
+                
+                // Рисуем "exum" белым
+                float contentY = currentY + (capsuleHeight - fontSize) / 2 + 0.5f;
+                ctx.drawText(Fonts.MEDIUM.getFont(fontSize), "exum", 
+                    currentX + capsulePadding + dWidth, contentY, ColorRGBA.WHITE);
+            } else {
+                // Обычный текст
+                float contentY = currentY + (capsuleHeight - fontSize) / 2 + 0.5f;
+                ctx.drawText(Fonts.MEDIUM.getFont(fontSize), text, 
+                    currentX + capsulePadding, contentY, ColorRGBA.WHITE);
+            }
+            
+            currentX += capsuleWidth + capsuleGap;
+            maxWidth = Math.max(maxWidth, currentX - posX - capsuleGap);
+            
+            // Переход на новую строку
+            if ((i + 1) % itemsPerRow == 0 && i + 1 < items.size()) {
+                currentX = posX;
+                currentY += capsuleHeight + rowGap;
+            }
+        }
 
-        DrawUtil.drawRoundedRect(ctx.getMatrices(), posX, posY, currentWidth, totalHeight, BorderRadius.all(rounding), new ColorRGBA(0, 0, 0, 125));
+        int rows = (int)Math.ceil((double)items.size() / itemsPerRow);
+        this.width = maxWidth;
+        this.height = rows * capsuleHeight + (rows - 1) * rowGap;
+    }
 
-        float logoPartWidth = logoW + padding * 2;
-        DrawUtil.drawRoundedRect(ctx.getMatrices(), posX, posY, logoPartWidth, totalHeight, new BorderRadius(rounding, 0, 0, rounding), new ColorRGBA(0, 0, 0, 255));
-
-        ctx.drawText(Fonts.MEDIUM.getFont(7.5F), "dexum ", posX + padding, posY + 6.0F, ColorRGBA.WHITE);
-        ctx.drawText(Fonts.MEDIUM.getFont(7.5F), version, posX + padding + Fonts.MEDIUM.getWidth("dexum ", 7.5F), posY + 6.0F, themeColor);
-
-        float currentX = posX + logoPartWidth + 7.0F;
-        float iconY = posY + 7.0F;
-        float textY = posY + 7.0F;
-
-        ctx.drawText(Fonts.FONT.getFont(8.5F), "e", currentX - 2.0F, iconY, themeColor);
-        ctx.drawText(Fonts.MEDIUM.getFont(7.2F), name, currentX + 8.0F, textY - 0.2F, ColorRGBA.WHITE);
-        currentX += nameW + interSectionGap;
-
-        ctx.drawText(Fonts.FONT.getFont(8.5F), "m", currentX - 3.5F, iconY + 0.2F, themeColor);
-        ctx.drawText(Fonts.MEDIUM.getFont(7.2F), fpsVal, currentX + 7.5F, textY - 0.2F, ColorRGBA.WHITE);
-        ctx.drawText(Fonts.MEDIUM.getFont(7.2F), "FPS", currentX + 7.5F + Fonts.MEDIUM.getWidth(fpsVal, 7.2F) + 1.5F, textY - 0.2F, new ColorRGBA(180, 180, 180, 255));
-        currentX += fpsW + interSectionGap;
-
-        ctx.drawText(Fonts.FONT.getFont(8.8F), "q", currentX - 3.0F, iconY + 0.1F, themeColor);
-        ctx.drawText(Fonts.MEDIUM.getFont(7.2F), ip, currentX + 7.5F, textY - 0.6F, ColorRGBA.WHITE);
-
-        this.width = currentWidth;
-        this.height = totalHeight;
+    private int getPlayerPing() {
+        if (mc.player == null || mc.getNetworkHandler() == null) return 0;
+        var entry = mc.getNetworkHandler().getPlayerListEntry(mc.player.getUuid());
+        return entry != null ? entry.getLatency() : 0;
     }
 }

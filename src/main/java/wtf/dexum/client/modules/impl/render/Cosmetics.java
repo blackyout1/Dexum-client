@@ -799,56 +799,12 @@ public final class Cosmetics extends Module implements IMinecraft {
         buffer.vertex(matrix, x2, y2, z2).color(r, g, b, a);
     }
 
-    private static final class ClassicWingPoint {
-        private final float x;
-        private final float y;
-        private final float alphaMultiplier;
-
-        private ClassicWingPoint(float x, float y, float alphaMultiplier) {
-            this.x = x;
-            this.y = y;
-            this.alphaMultiplier = alphaMultiplier;
-        }
+    private record ClassicWingPoint(float x, float y, float alphaMultiplier) {
     }
 
-    private static final class ClassicWingPose {
-        private final float preTranslateY;
-        private final float preTranslateZ;
-        private final float anchorY;
-        private final float anchorZ;
-        private final float pitchRotation;
-        private final float rollRotation;
-        private final float openMultiplier;
-        private final float scaleMultiplier;
-        private final float motionSpreadBoost;
-        private final float flapAmplitude;
-        private final float sideOffset;
-        private final float sideYOffset;
-        private final float sideZOffset;
-        private final float sideRoll;
-        private final float sidePitch;
-        private final float flapSpeed;
-
-        private ClassicWingPose(float preTranslateY, float preTranslateZ, float anchorY, float anchorZ, float pitchRotation,
-                                float rollRotation, float openMultiplier, float scaleMultiplier, float motionSpreadBoost,
-                                float flapAmplitude, float sideOffset, float sideYOffset, float sideZOffset, float sideRoll,
-                                float sidePitch, float flapSpeed) {
-            this.preTranslateY = preTranslateY;
-            this.preTranslateZ = preTranslateZ;
-            this.anchorY = anchorY;
-            this.anchorZ = anchorZ;
-            this.pitchRotation = pitchRotation;
-            this.rollRotation = rollRotation;
-            this.openMultiplier = openMultiplier;
-            this.scaleMultiplier = scaleMultiplier;
-            this.motionSpreadBoost = motionSpreadBoost;
-            this.flapAmplitude = flapAmplitude;
-            this.sideOffset = sideOffset;
-            this.sideYOffset = sideYOffset;
-            this.sideZOffset = sideZOffset;
-            this.sideRoll = sideRoll;
-            this.sidePitch = sidePitch;
-            this.flapSpeed = flapSpeed;
-        }
+    private record ClassicWingPose(float preTranslateY, float preTranslateZ, float anchorY, float anchorZ,
+                                   float pitchRotation, float rollRotation, float openMultiplier, float scaleMultiplier,
+                                   float motionSpreadBoost, float flapAmplitude, float sideOffset, float sideYOffset,
+                                   float sideZOffset, float sideRoll, float sidePitch, float flapSpeed) {
     }
 }

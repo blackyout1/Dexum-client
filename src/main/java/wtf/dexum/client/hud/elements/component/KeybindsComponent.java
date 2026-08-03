@@ -32,20 +32,56 @@ public class KeybindsComponent extends DraggableHudElement {
         this.v2 = v2;
     }
 
+    private String getShortKeyName(int key) {
+        String name = Keyboard.getKeyName(key);
+        if (name == null || name.isEmpty()) return "";
+
+        return switch (name.toUpperCase()) {
+            case "LEFT_SHIFT", "LSHIFT" -> "L_SHIFT";
+            case "RIGHT_SHIFT", "RSHIFT" -> "R_SHIFT";
+            case "LEFT_CONTROL", "LCONTROL", "LEFT_CTRL" -> "L_CTRL";
+            case "RIGHT_CONTROL", "RCONTROL", "RIGHT_CTRL" -> "R_CTRL";
+            case "LEFT_ALT", "LALT" -> "L_ALT";
+            case "RIGHT_ALT", "RALT" -> "R_ALT";
+            case "LEFT_SUPER", "LEFT_WIN", "LWIN", "LEFT_META" -> "L_WIN";
+            case "RIGHT_SUPER", "RIGHT_WIN", "RWIN", "RIGHT_META" -> "R_WIN";
+            case "BACKSPACE" -> "BKSP";
+            case "CAPS_LOCK", "CAPITAL" -> "CAPS";
+            case "PAGE_UP" -> "PGUP";
+            case "PAGE_DOWN" -> "PGDN";
+            case "INSERT" -> "INS";
+            case "DELETE" -> "DEL";
+            case "PRINT_SCREEN" -> "PRTSC";
+            case "SCROLL_LOCK" -> "SCRL";
+            case "NUM_LOCK" -> "NUM";
+            case "NUMPAD0", "KP_0" -> "NUM0";
+            case "NUMPAD1", "KP_1" -> "NUM1";
+            case "NUMPAD2", "KP_2" -> "NUM2";
+            case "NUMPAD3", "KP_3" -> "NUM3";
+            case "NUMPAD4", "KP_4" -> "NUM4";
+            case "NUMPAD5", "KP_5" -> "NUM5";
+            case "NUMPAD6", "KP_6" -> "NUM6";
+            case "NUMPAD7", "KP_7" -> "NUM7";
+            case "NUMPAD8", "KP_8" -> "NUM8";
+            case "NUMPAD9", "KP_9" -> "NUM9";
+            default -> name.length() > 8 ? name.substring(0, 7) + "…" : name;
+        };
+    }
+
     public void render(CustomDrawContext ctx) {
         float posX = this.getX();
         float posY = this.getY();
-        Theme theme = Dexum.getInstance().getThemeManager().getCurrentTheme();
-        ColorRGBA themeColor = theme.getColor();
+        ColorRGBA themeColor = Dexum.getInstance().getThemeManager().getCurrentTheme().getColor();
+        ColorRGBA hudBg = wtf.dexum.client.modules.impl.render.Interface.getHudColor();
 
         if (v2) {
-            renderV2(ctx, posX, posY, themeColor);
+            renderV2(ctx, posX, posY, themeColor, hudBg);
         } else {
-            renderClassic(ctx, posX, posY, themeColor);
+            renderClassic(ctx, posX, posY, themeColor, hudBg);
         }
     }
 
-    private void renderV2(CustomDrawContext ctx, float posX, float posY, ColorRGBA themeColor) {
+    private void renderV2(CustomDrawContext ctx, float posX, float posY, ColorRGBA themeColor, ColorRGBA hudBg) {
         boolean isFound = false;
         for (Module module : Dexum.getInstance().getModuleManager().getModules()) {
             if (module.getKeyCode() != -1 && module.isEnabled()) {
@@ -68,7 +104,7 @@ public class KeybindsComponent extends DraggableHudElement {
 
         for (Module module : Dexum.getInstance().getModuleManager().getModules()) {
             if (module.getKeyCode() != -1 && module.getAnimation().getValue() > 0.01F) {
-                String bind = Keyboard.getKeyName(module.getKeyCode());
+                String bind = getShortKeyName(module.getKeyCode());
                 activeBinds.add(new String[]{module.getName(), bind, String.valueOf(module.getAnimation().getValue())});
                 float w = Fonts.REGULAR.getWidth(module.getName() + " " + bind, 7.2F);
                 maxWidth = Math.max(maxWidth, w);
@@ -78,7 +114,7 @@ public class KeybindsComponent extends DraggableHudElement {
                 if (setting instanceof BooleanSetting bool && bool.getKeyCode() != -1) {
                     float sAnim = bool.getAnimation().getValue();
                     if (sAnim > 0.01F) {
-                        String bind = Keyboard.getKeyName(bool.getKeyCode());
+                        String bind = getShortKeyName(bool.getKeyCode());
                         activeBinds.add(new String[]{bool.getName(), bind, String.valueOf(sAnim)});
                         float w = Fonts.REGULAR.getWidth(bool.getName() + " " + bind, 7.2F);
                         maxWidth = Math.max(maxWidth, w);
@@ -103,14 +139,14 @@ public class KeybindsComponent extends DraggableHudElement {
 
         DrawUtil.drawRoundedRect(ctx.getMatrices(), posX, posY, animWidth, headerHeight,
                 new BorderRadius(rounding.x, rounding.y, 0, 0),
-                ColorRGBA.BLACK.withAlpha((int)(255 * this.alpha.getValue())));
+                hudBg.withAlpha((int)(255 * this.alpha.getValue())));
 
         float bodyY = posY + headerHeight;
         float bodyHeight = totalHeight - headerHeight;
 
         DrawUtil.drawRoundedRect(ctx.getMatrices(), posX, bodyY, animWidth, bodyHeight,
                 new BorderRadius(0, 0, rounding.z, rounding.w),
-                new ColorRGBA(0, 0, 0, (int)(135 * this.alpha.getValue())));
+                hudBg.withAlpha((int)(135 * this.alpha.getValue())));
 
         float headerTextWidth = Fonts.REGULAR.getWidth("Keybinds", 8.0F);
         float iconSize = 7.2F;
@@ -157,7 +193,7 @@ public class KeybindsComponent extends DraggableHudElement {
         this.height = totalHeight;
     }
 
-    private void renderClassic(CustomDrawContext ctx, float posX, float posY, ColorRGBA themeColor) {
+    private void renderClassic(CustomDrawContext ctx, float posX, float posY, ColorRGBA themeColor, ColorRGBA hudBg) {
         boolean isFound = false;
 
         for(Module module : Dexum.getInstance().getModuleManager().getModules()) {
@@ -184,7 +220,7 @@ public class KeybindsComponent extends DraggableHudElement {
         for(Module module : Dexum.getInstance().getModuleManager().getModules()) {
             float anim = module.getAnimation().getValue();
             if (module.getKeyCode() != -1 && anim > 0.01F) {
-                String bind = Keyboard.getKeyName(module.getKeyCode());
+                String bind = getShortKeyName(module.getKeyCode());
                 float nameWidth = Fonts.REGULAR.getWidth(module.getName(), 7.2F);
                 float bindWidth = Fonts.REGULAR.getWidth(bind, 7.2F);
                 maxNameWidth = Math.max(maxNameWidth, nameWidth * anim);
@@ -195,7 +231,7 @@ public class KeybindsComponent extends DraggableHudElement {
                 if (setting instanceof BooleanSetting bool && bool.getKeyCode() != -1) {
                     float sAnim = bool.getAnimation().getValue();
                     if (sAnim > 0.01F) {
-                        String bind = Keyboard.getKeyName(bool.getKeyCode());
+                        String bind = getShortKeyName(bool.getKeyCode());
                         float nameWidth = Fonts.REGULAR.getWidth(bool.getName(), 7.2F);
                         float bindWidth = Fonts.REGULAR.getWidth(bind, 7.2F);
                         maxNameWidth = Math.max(maxNameWidth, nameWidth * sAnim);
@@ -216,8 +252,8 @@ public class KeybindsComponent extends DraggableHudElement {
 
         if (this.alpha.getValue() > 0.01F) {
             float rounding = 4.0F;
-            ColorRGBA headerColor = new ColorRGBA(0, 0, 0, (int)(255 * this.alpha.getValue()));
-            ColorRGBA bodyColor = new ColorRGBA(0, 0, 0, (int)(125 * this.alpha.getValue()));
+            ColorRGBA headerColor = hudBg.withAlpha((int)(255 * this.alpha.getValue()));
+            ColorRGBA bodyColor = hudBg.withAlpha((int)(125 * this.alpha.getValue()));
 
             DrawUtil.drawBlur(ctx.getMatrices(), posX, posY, currentWidth, totalHeight, 15.0F, BorderRadius.all(rounding), ColorRGBA.WHITE.withAlpha((int)(255 * this.alpha.getValue())));
 
@@ -234,7 +270,7 @@ public class KeybindsComponent extends DraggableHudElement {
             for(Module module : Dexum.getInstance().getModuleManager().getModules()) {
                 float anim = module.getAnimation().getValue();
                 if (module.getKeyCode() != -1 && anim > 0.01F) {
-                    String bind = Keyboard.getKeyName(module.getKeyCode());
+                    String bind = getShortKeyName(module.getKeyCode());
                     float bindWidth = Fonts.MEDIUM.getWidth(bind, 7.2F);
 
                     ColorRGBA iconC = themeColor.withAlpha((int)(255 * this.alpha.getValue() * anim));
@@ -248,7 +284,7 @@ public class KeybindsComponent extends DraggableHudElement {
                     if (setting instanceof BooleanSetting bool && bool.getKeyCode() != -1) {
                         float sAnim = bool.getAnimation().getValue();
                         if (sAnim > 0.01F) {
-                            String bind = Keyboard.getKeyName(bool.getKeyCode());
+                            String bind = getShortKeyName(bool.getKeyCode());
                             float bindWidth = Fonts.MEDIUM.getWidth(bind, 7.2F);
 
                             ColorRGBA iconC = themeColor.withAlpha((int)(255 * this.alpha.getValue() * sAnim));

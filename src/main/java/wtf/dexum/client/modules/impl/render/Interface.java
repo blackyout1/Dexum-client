@@ -21,11 +21,14 @@ import wtf.dexum.client.modules.api.Category;
 import wtf.dexum.client.modules.api.Module;
 import wtf.dexum.client.modules.api.ModuleAnnotation;
 import wtf.dexum.client.modules.api.setting.impl.MultiBooleanSetting;
+import wtf.dexum.client.screens.HudElementSettingsScreen;
 import wtf.dexum.utility.math.MathUtil;
 import wtf.dexum.utility.render.display.Render2DUtil;
 import wtf.dexum.utility.render.display.base.CustomDrawContext;
 import wtf.dexum.utility.render.display.base.GuiUtil;
-
+import wtf.dexum.base.theme.Theme;
+import wtf.dexum.client.modules.api.setting.impl.ColorSetting;
+import wtf.dexum.utility.render.display.base.color.ColorRGBA;
 @ModuleAnnotation(
         name = "HUD",
         category = Category.RENDER,
@@ -34,7 +37,19 @@ import wtf.dexum.utility.render.display.base.GuiUtil;
 public final class Interface extends Module {
     public static final Interface INSTANCE = new Interface();
     private final wtf.dexum.client.modules.api.setting.impl.ModeSetting hudMode = new wtf.dexum.client.modules.api.setting.impl.ModeSetting("HUD Режим", "Hud1", "Hud2");
-    private final MultiBooleanSetting elementsSetting = MultiBooleanSetting.create("Элементы", List.of("Ватермарка", "Эффекты", "Модераторы", "Уведомления", "Информация", "Бинды", "Таргет худ", "Список модулей"));
+    private final MultiBooleanSetting elementsSetting = MultiBooleanSetting.create("Элементы", List.of("Ватермарка", "Эффекты", "Модераторы", "Уведомления", "Информация", "Бинды", "Таргет худ", "Список модулей", "Динамик Айленд"));
+    public final ColorSetting hudColor = new ColorSetting("Цвет HUD", new ColorRGBA(56, 58, 61));
+
+    /** Use this everywhere instead of getCurrentTheme().getColor() */
+    public static ColorRGBA getHudColor() {
+        return INSTANCE.hudColor.getColor();
+    }
+
+    /** Secondary color — slightly darker version of hudColor */
+    public static ColorRGBA getHudSecondColor() {
+        ColorRGBA c = INSTANCE.hudColor.getColor();
+        return c.darker(0.3f);
+    }
     private final List<DraggableHudElement> elementsHud1 = new ArrayList();
     private final List<DraggableHudElement> elementsHud2 = new ArrayList();
     private DraggableHudElement draggingElement = null;
@@ -148,9 +163,9 @@ public final class Interface extends Module {
         }
 
         if (mc.currentScreen instanceof ChatScreen && this.draggingElement != null) {
-            Vector2f mousePos = GuiUtil.getMouse((double)this.getCustomScale());
-            double mouseX = (double)mousePos.getX();
-            double mouseY = (double)mousePos.getY();
+            Vector2f mousePos = GuiUtil.getMouse(this.getCustomScale());
+            double mouseX = mousePos.getX();
+            double mouseY = mousePos.getY();
             this.draggingElement.set(ctx, (float)mouseX - this.dragOffsetX, (float)mouseY - this.dragOffsetY, this, width, height);
         }
 
@@ -158,12 +173,12 @@ public final class Interface extends Module {
 
     private boolean shouldRender(DraggableHudElement element) {
         String name = element.getName().replace("V2", "");
-        List<String> settingNames = List.of("Ватермарка", "Эффекты", "Модераторы", "Уведомления", "Информация", "Бинды", "Таргет худ", "Список модулей");
-        List<String> componentNames = List.of("Watermark", "Potions", "Staff", "Notify", "Information", "Keybinds", "TargetHUD", "ArrayList");
+        List<String> settingNames = List.of("Ватермарка", "Эффекты", "Модераторы", "Уведомления", "Информация", "Бинды", "Таргет худ", "Список модулей", "Динамик Айленд");
+        List<String> componentNames = List.of("Watermark", "Potions", "Staff", "Notify", "Information", "Keybinds", "TargetHUD", "ArrayList", "DynamicIsland");
 
         int nameIndex = componentNames.indexOf(name);
         if (nameIndex != -1 && nameIndex < elementsSetting.getBooleanSettings().size()) {
-            return ((MultiBooleanSetting.Value)elementsSetting.getBooleanSettings().get(nameIndex)).isEnabled();
+            return elementsSetting.getBooleanSettings().get(nameIndex).isEnabled();
         }
 
         return true;
@@ -177,9 +192,9 @@ public final class Interface extends Module {
                 this.draggingElement = null;
             }
         } else {
-            Vector2f mousePos = GuiUtil.getMouse((double)this.getCustomScale());
-            double mouseX = (double)mousePos.getX();
-            double mouseY = (double)mousePos.getY();
+            Vector2f mousePos = GuiUtil.getMouse(this.getCustomScale());
+            double mouseX = mousePos.getX();
+            double mouseY = mousePos.getY();
             if (event.getAction() == 1 && event.getButton() == 0) {
                 List<DraggableHudElement> reversedElements = new ArrayList(getActiveElements());
                 Collections.reverse(reversedElements);
@@ -191,6 +206,20 @@ public final class Interface extends Module {
                         this.draggingElement = element;
                         this.dragOffsetX = (float)mouseX - element.getX();
                         this.dragOffsetY = (float)mouseY - element.getY();
+                        break;
+                    }
+                }
+            } else if (event.getAction() == 1 && event.getButton() == 1) {
+                // Правый клик - открыть настройки элемента
+                List<DraggableHudElement> reversedElements = new ArrayList(getActiveElements());
+                Collections.reverse(reversedElements);
+                
+                for (DraggableHudElement element : reversedElements) {
+                    if (this.shouldRender(element) && element.isMouseOver(mouseX, mouseY)) {
+                        // Открываем настройки элемента (если есть)
+                        if (!element.getSettings().isEmpty()) {
+                            mc.setScreen(new HudElementSettingsScreen(element));
+                        }
                         break;
                     }
                 }

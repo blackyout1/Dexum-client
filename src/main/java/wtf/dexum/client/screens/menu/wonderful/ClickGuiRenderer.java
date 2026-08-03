@@ -15,14 +15,20 @@ import wtf.dexum.utility.render.display.shader.DrawUtil;
 import wtf.dexum.utility.render.display.Keyboard;
 import wtf.dexum.utility.render.display.StencilUtil;
 import wtf.dexum.utility.math.MathUtil;
-
+import wtf.dexum.client.modules.impl.render.Menu;
 public class ClickGuiRenderer {
     private final ClickGuiState state;
     private final ClickGuiSettingRenderer settingRenderer;
+    private ClickGuiInputHandler inputHandler;
 
     public ClickGuiRenderer(ClickGuiState state, ClickGuiSettingRenderer settingRenderer) {
         this.state = state;
         this.settingRenderer = settingRenderer;
+    }
+
+    /** Must be called after inputHandler is created so we can access the popup */
+    public void setInputHandler(ClickGuiInputHandler handler) {
+        this.inputHandler = handler;
     }
 
     public void render(DrawContext context, int mouseX, int mouseY, Window window, float animationProgress) {
@@ -38,6 +44,50 @@ public class ClickGuiRenderer {
         }
 
         renderSearchField(context, alphaMul, categories.length);
+
+        // Color picker popup rendered last — on top of everything
+        if (inputHandler != null) {
+            inputHandler.getColorPickerPopup().render(context, mouseX, mouseY);
+        }
+    }
+
+    private String getShortKeyName(int key) {
+        String name = Keyboard.getKeyName(key);
+        if (name == null || name.isEmpty()) return "";
+
+        return switch (name.toUpperCase()) {
+            case "LEFT_SHIFT", "LSHIFT" -> "L_SHIFT";
+            case "RIGHT_SHIFT", "RSHIFT" -> "R_SHIFT";
+            case "LEFT_CONTROL", "LCONTROL", "LEFT_CTRL" -> "L_CTRL";
+            case "RIGHT_CONTROL", "RCONTROL", "RIGHT_CTRL" -> "R_CTRL";
+            case "LEFT_ALT", "LALT" -> "L_ALT";
+            case "RIGHT_ALT", "RALT" -> "R_ALT";
+            case "LEFT_SUPER", "LEFT_WIN", "LWIN", "LEFT_META" -> "L_WIN";
+            case "RIGHT_SUPER", "RIGHT_WIN", "RWIN", "RIGHT_META" -> "R_WIN";
+            case "BACKSPACE" -> "BKSP";
+            case "CAPS_LOCK", "CAPITAL" -> "CAPS";
+            case "PAGE_UP" -> "PGUP";
+            case "PAGE_DOWN" -> "PGDN";
+            case "INSERT" -> "INS";
+            case "DELETE" -> "DEL";
+            case "PRINT_SCREEN" -> "PRTSC";
+            case "SCROLL_LOCK" -> "SCRL";
+            case "NUM_LOCK" -> "NUM";
+            case "MOUSE4", "BUTTON4" -> "M4";
+            case "MOUSE5", "BUTTON5" -> "M5";
+            case "MOUSE3", "BUTTON3", "MIDDLE" -> "M3";
+            case "NUMPAD0", "KP_0" -> "NUM0";
+            case "NUMPAD1", "KP_1" -> "NUM1";
+            case "NUMPAD2", "KP_2" -> "NUM2";
+            case "NUMPAD3", "KP_3" -> "NUM3";
+            case "NUMPAD4", "KP_4" -> "NUM4";
+            case "NUMPAD5", "KP_5" -> "NUM5";
+            case "NUMPAD6", "KP_6" -> "NUM6";
+            case "NUMPAD7", "KP_7" -> "NUM7";
+            case "NUMPAD8", "KP_8" -> "NUM8";
+            case "NUMPAD9", "KP_9" -> "NUM9";
+            default -> name.length() > 8 ? name.substring(0, 7) + "…" : name;
+        };
     }
 
     private void renderSearchField(DrawContext context, float alphaMul, int categoryCount) {
@@ -46,8 +96,8 @@ public class ClickGuiRenderer {
         float searchX = ClickGuiLayout.getSearchX(state.getX(), categoryCount, ClickGuiLayout.SEARCH_WIDTH);
         float searchY = ClickGuiLayout.getSearchY(state.getY() + state.getRenderOffsetY());
 
-        DrawUtil.drawBlur(customDrawContext.getMatrices(), searchX, searchY, ClickGuiLayout.SEARCH_WIDTH, ClickGuiLayout.SEARCH_HEIGHT, 15.0f, BorderRadius.all(4.0f), ColorRGBA.WHITE.withAlpha((int) (255 * alphaMul)));
-        DrawUtil.drawRoundedRect(customDrawContext.getMatrices(), searchX, searchY, ClickGuiLayout.SEARCH_WIDTH, ClickGuiLayout.SEARCH_HEIGHT, BorderRadius.all(4.0f), new ColorRGBA(0, 0, 0, (int) (125 * alphaMul)));
+        DrawUtil.drawBlur(customDrawContext.getMatrices(), searchX, searchY, ClickGuiLayout.SEARCH_WIDTH, ClickGuiLayout.SEARCH_HEIGHT, 15.0f, BorderRadius.all(3.0f), ColorRGBA.WHITE.withAlpha((int) (255 * alphaMul)));
+        DrawUtil.drawRoundedRect(customDrawContext.getMatrices(), searchX, searchY, ClickGuiLayout.SEARCH_WIDTH, ClickGuiLayout.SEARCH_HEIGHT, BorderRadius.all(3.0f), new ColorRGBA(0, 0, 0, (int) (125 * alphaMul)));
 
         String text = state.getSearchText();
         boolean hasText = text != null && !text.isEmpty();
@@ -80,11 +130,22 @@ public class ClickGuiRenderer {
         Theme theme = Dexum.getInstance().getThemeManager().getCurrentTheme();
         ColorRGBA themeColor = theme.getColor();
 
-        float rounding = 4.0F;
+        float rounding = 3.0F;
         float headerHeight = ClickGuiLayout.CATEGORY_HEADER_HEIGHT;
 
-        ColorRGBA headerColor = new ColorRGBA(0, 0, 0, (int)(255 * alphaMul));
-        ColorRGBA bodyColor = new ColorRGBA(0, 0, 0, (int)(125 * alphaMul));
+        ColorRGBA guiBg = Menu.INSTANCE.guiColor.getColor();
+        ColorRGBA headerColor = new ColorRGBA(
+                (int) guiBg.getRed(),
+                (int) guiBg.getGreen(),
+                (int) guiBg.getBlue(),
+                (int) (200 * alphaMul)
+        );
+        ColorRGBA bodyColor = new ColorRGBA(
+                (int) guiBg.getRed(),
+                (int) guiBg.getGreen(),
+                (int) guiBg.getBlue(),
+                (int) (160 * alphaMul)
+        );
 
         DrawUtil.drawBlur(customDrawContext.getMatrices(), panelX, panelY, ClickGuiLayout.WIDTH, ClickGuiLayout.HEIGHT, 15.0F, BorderRadius.all(rounding), ColorRGBA.WHITE.withAlpha((int)(255 * alphaMul)));
 
@@ -162,56 +223,119 @@ public class ClickGuiRenderer {
         Theme theme = Dexum.getInstance().getThemeManager().getCurrentTheme();
         ColorRGBA themeColor = theme.getColor();
 
-        ColorRGBA moduleBg = module.isEnabled() ? themeColor.withAlpha((int)(80 * alphaMul)) : new ColorRGBA(255, 255, 255, (int)(10 * alphaMul));
+        // Слабая подсветка как в Delta
+        ColorRGBA moduleBg = module.isEnabled()
+                ? new ColorRGBA(255, 255, 255, (int)(12 * alphaMul))
+                : new ColorRGBA(255, 255, 255, (int)(6 * alphaMul));
 
-        DrawUtil.drawRoundedRect(customDrawContext.getMatrices(), panelX + ClickGuiLayout.MODULE_PADDING, moduleY, ClickGuiLayout.MODULE_INNER_WIDTH, moduleHeight, BorderRadius.all(2.0f), moduleBg);
+        DrawUtil.drawRoundedRect(
+                customDrawContext.getMatrices(),
+                panelX + ClickGuiLayout.MODULE_PADDING,
+                moduleY,
+                ClickGuiLayout.MODULE_INNER_WIDTH,
+                moduleHeight,
+                BorderRadius.all(2.0f),
+                moduleBg
+        );
 
-        Animation dotAnimation = state.getModuleDotAnimation(module);
-        dotAnimation.update(module.isEnabled());
-        float dotProgress = dotAnimation.getValue();
+        // Анимация тумблера
+        Animation toggleAnim = state.getModuleDotAnimation(module);
+        toggleAnim.update(module.isEnabled());
+        float toggleProgress = toggleAnim.getValue();
 
-        float textOffsetX = 0f;
-        if (dotProgress > 0.01f) {
-            float dotSize = 3.0f;
-            float dotX = panelX + ClickGuiLayout.SETTING_LEFT + 1.5f;
-            float dotY = moduleY + 9.0f;
-            DrawUtil.drawRoundedRect(customDrawContext.getMatrices(), dotX, dotY, dotSize, dotSize, BorderRadius.all(dotSize / 2.0f), themeColor.withAlpha((int)(255 * alphaMul * dotProgress)));
-            textOffsetX = (dotSize + 3.5f) * dotProgress;
-        }
+        // === Тумблер справа ===
+        float toggleWidth = 15f;
+        float toggleHeight = 8.5f;
+        float toggleX = panelX + ClickGuiLayout.WIDTH - 19f;
+        float toggleY = moduleY + 5.5f;
 
+        ColorRGBA toggleBg = module.isEnabled()
+                ? themeColor.withAlpha((int)(200 * alphaMul))
+                : new ColorRGBA(55, 55, 65, (int)(180 * alphaMul));
+
+        DrawUtil.drawRoundedRect(
+                customDrawContext.getMatrices(),
+                toggleX, toggleY,
+                toggleWidth, toggleHeight,
+                BorderRadius.all(toggleHeight / 2f),
+                toggleBg
+        );
+
+        float circleSize = 6.5f;
+        float circleX = toggleX + 1.3f + (toggleWidth - circleSize - 2.6f) * toggleProgress;
+        float circleY = toggleY + 1.0f;
+
+        DrawUtil.drawRoundedRect(
+                customDrawContext.getMatrices(),
+                circleX, circleY,
+                circleSize, circleSize,
+                BorderRadius.all(circleSize / 2f),
+                ColorRGBA.WHITE.withAlpha((int)(255 * alphaMul))
+        );
+
+        // Название модуля
         String moduleName = module.getName();
-        ColorRGBA nameColor = module.isEnabled() ? ColorRGBA.WHITE : new ColorRGBA(200, 200, 210, (int)(255 * alphaMul));
-        customDrawContext.drawText(Fonts.REGULAR.getFont(7.5f), moduleName, panelX + ClickGuiLayout.SETTING_LEFT + textOffsetX + 2.0f, moduleY + 7.5f, nameColor.withAlpha((int)(255 * alphaMul)));
+        ColorRGBA nameColor = module.isEnabled()
+                ? ColorRGBA.WHITE
+                : new ColorRGBA(200, 200, 210, (int)(255 * alphaMul));
 
+        customDrawContext.drawText(
+                Fonts.REGULAR.getFont(7.5f),
+                moduleName,
+                panelX + ClickGuiLayout.SETTING_LEFT + 2.0f,
+                moduleY + 7.5f,
+                nameColor.withAlpha((int)(255 * alphaMul))
+        );
+
+        // Бинд — слева от тумблера
         String keyText = "";
         if (state.getBindingModule() == module) {
             keyText = "[...]";
         } else {
             int key = module.getKeyCode();
             if (key != -1) {
-                keyText = "[" + Keyboard.getKeyName(key) + "]";
+                keyText = "[" + getShortKeyName(key) + "]";
             }
         }
 
         if (!keyText.isEmpty()) {
+            float keyWidth = Fonts.REGULAR.getWidth(keyText, 7.0f);
+            float keyTextX = toggleX - 5f - keyWidth;
 
-            float keyTextX = panelX + ClickGuiLayout.WIDTH - 10.0f - Fonts.REGULAR.getWidth(keyText, 7.5f);
-            ColorRGBA keyColor = new ColorRGBA(180, 180, 190, (int)(255 * alphaMul));
-            customDrawContext.drawText(Fonts.REGULAR.getFont(7.5f), keyText, keyTextX, moduleY + 7.0f, keyColor);
+            ColorRGBA keyColor = new ColorRGBA(160, 160, 170, (int)(220 * alphaMul));
+            customDrawContext.drawText(
+                    Fonts.REGULAR.getFont(7.0f),
+                    keyText,
+                    keyTextX,
+                    moduleY + 7.5f,
+                    keyColor
+            );
         }
 
+        // Три точки — ещё левее
         if (ClickGuiLayout.hasVisibleSettings(module)) {
-            renderModuleDots(context, panelX, moduleY, module, module.isEnabled(), alphaMul);
+            float dotsX;
+
+            if (!keyText.isEmpty()) {
+                float keyWidth = Fonts.REGULAR.getWidth(keyText, 7.0f);
+                dotsX = toggleX - 5f - keyWidth - 12f;
+            } else {
+                dotsX = toggleX - 14f;
+            }
+
+            ColorRGBA dotsColor = module.isEnabled()
+                    ? ColorRGBA.WHITE.withAlpha((int)(200 * alphaMul))
+                    : ColorRGBA.WHITE.withAlpha((int)(140 * alphaMul));
+
+            customDrawContext.drawText(
+                    Fonts.REGULAR.getFont(8.5f),
+                    "•••",
+                    dotsX,
+                    moduleY + 6.8f,
+                    dotsColor
+            );
         }
 
         settingRenderer.render(context, module, panelX, moduleY, openProgress, colorTheme, mouseX, mouseY, state, alphaMul);
     }
-
-    private void renderModuleDots(DrawContext context, float panelX, float moduleY, Module module, boolean enabled, float alphaMul) {
-        CustomDrawContext customDrawContext = CustomDrawContext.of(context);
-        float dotsX = panelX + ClickGuiLayout.WIDTH - 12f;
-        ColorRGBA dotsColor = enabled ? ColorRGBA.WHITE.withAlpha((int)(220 * alphaMul)) : ColorRGBA.WHITE.withAlpha((int)(150 * alphaMul));
-        customDrawContext.drawText(Fonts.REGULAR.getFont(9.0f), "•••", dotsX, moduleY + 6.5f, dotsColor);
-    }
-
 }
