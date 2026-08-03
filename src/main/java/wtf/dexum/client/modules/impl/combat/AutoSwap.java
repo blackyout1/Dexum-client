@@ -29,8 +29,10 @@ public final class AutoSwap extends Module {
    public static final AutoSwap INSTANCE = new AutoSwap();
    private final ModeSetting itemType = new ModeSetting("Предмет", new String[]{"Щит", "Геплы", "Тотем", "Шар"});
    private final ModeSetting swapType = new ModeSetting("Свапать на", new String[]{"Щит", "Геплы", "Тотем", "Шар"});
-   private final KeySetting keyToSwap = new KeySetting("Кнопка", -1);
+   private final KeySetting keyToSwap = new KeySetting("Кнопка свапа", -1);
+   private final ModeSetting mode = new ModeSetting("Режим", new String[]{"Simple", "Multi (2)", "Multi (3)"});
    private boolean swap;
+   private int swapStep = 0;
 
    @EventTarget
    public void onKey(EventKey event) {
@@ -38,8 +40,8 @@ public final class AutoSwap extends Module {
          if (event.getAction() == 1) {
             if (event.is(this.keyToSwap.getKeyCode())) {
                this.swap = true;
+               this.swapStep = 0;
             }
-
          }
       }
    }
@@ -48,31 +50,45 @@ public final class AutoSwap extends Module {
    @Native
    public void onTick(EventUpdate event) {
       if (this.swap) {
-         Slot first = PlayerInventoryUtil.getSlot(this.getItemByType(this.itemType.get()), Comparator.comparing((s) -> {
-            return s.getStack().hasEnchantments();
-         }), (s) -> {
-            return s.id != 46 && s.id != 45 && s.id != 5 && s.id != 6 && s.id != 7 && s.id != 8;
-         });
-         Slot second = PlayerInventoryUtil.getSlot(this.getItemByType(this.swapType.get()), Comparator.comparing((s) -> {
-            return s.getStack().hasEnchantments();
-         }), (s) -> {
-            return s.id != 46 && s.id != 45 && s.id != 5 && s.id != 6 && s.id != 7 && s.id != 8;
-         });
-         Slot validSlot = first != null && mc.player.getOffHandStack().getItem() != first.getStack().getItem() ? first : second;
-         PlayerInventoryComponent.addTask(() -> {
-            if (mc.player.isSprinting()) {
-               mc.player.setSprinting(false);
-               mc.getNetworkHandler().sendPacket(new ClientCommandC2SPacket(mc.player, Mode.STOP_SPRINTING));
-               if (!AutoSprint.INSTANCE.isEnabled()) {
-                  mc.options.sprintKey.setPressed(false);
-               }
+         int maxSteps = this.mode.get().equals("Multi (2)") ? 2 : (this.mode.get().equals("Multi (3)") ? 3 : 1);
+         
+         for (int step = this.swapStep; step < maxSteps && step < 3; step++) {
+            Item targetItem = this.getItemByStep(step);
+            Slot slot = PlayerInventoryUtil.getSlot(targetItem, Comparator.comparing((s) -> {
+               return s.getStack().hasEnchantments();
+            }), (s) -> {
+               return s.id != 46 && s.id != 45 && s.id != 5 && s.id != 6 && s.id != 7 && s.id != 8;
+            });
+            
+            if (slot != null) {
+               PlayerInventoryComponent.addTask(() -> {
+                  if (mc.player.isSprinting()) {
+                     mc.player.setSprinting(false);
+                     mc.getNetworkHandler().sendPacket(new ClientCommandC2SPacket(mc.player, Mode.STOP_SPRINTING));
+                     if (!AutoSprint.INSTANCE.isEnabled()) {
+                        mc.options.sprintKey.setPressed(false);
+                     }
+                  }
+                  PlayerInventoryUtil.swapHand(slot, Hand.OFF_HAND, false);
+               });
             }
-
-            PlayerInventoryUtil.swapHand(validSlot, Hand.OFF_HAND, false);
-         });
-         this.swap = false;
+         }
+         
+         this.swapStep = maxSteps;
+         if (this.swapStep >= maxSteps) {
+            this.swap = false;
+            this.swapStep = 0;
+         }
       }
+   }
 
+   private Item getItemByStep(int step) {
+      switch (step) {
+         case 0: return this.getItemByType(this.itemType.get());
+         case 1: return this.getItemByType(this.swapType.get());
+         case 2: return this.getItemByType(this.itemType.get());
+         default: return Items.AIR;
+      }
    }
 
    @Native

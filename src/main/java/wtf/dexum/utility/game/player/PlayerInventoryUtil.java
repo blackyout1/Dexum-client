@@ -45,10 +45,51 @@ import wtf.dexum.utility.math.MathUtil;
 public final class PlayerInventoryUtil implements IClient {
    public static final List<KeyBinding> moveKeys;
 
+   private static boolean clientSwap = false;
+   private static java.lang.reflect.Field SLOT_FIELD;
+
+   static {
+      moveKeys = List.of(mc.options.forwardKey, mc.options.backKey, mc.options.leftKey, mc.options.rightKey, mc.options.jumpKey);
+      try {
+         SLOT_FIELD = UpdateSelectedSlotC2SPacket.class.getDeclaredField("slot");
+         SLOT_FIELD.setAccessible(true);
+      } catch (NoSuchFieldException e) {
+         for (java.lang.reflect.Field field : UpdateSelectedSlotC2SPacket.class.getDeclaredFields()) {
+            if (field.getType() == int.class) {
+               field.setAccessible(true);
+               SLOT_FIELD = field;
+               break;
+            }
+         }
+      }
+   }
+
    public static void updateSlots() {
       ScreenHandler screenHandler = mc.player.currentScreenHandler;
       ItemStack stack = ((Item)Registries.ITEM.get((int)MathUtil.getRandom(0.0D, 100.0D))).getDefaultStack();
       mc.player.networkHandler.sendPacket(new ClickSlotC2SPacket(screenHandler.syncId, screenHandler.getRevision(), 0, 0, SlotActionType.PICKUP_ALL, stack, Int2ObjectMaps.singleton(0, stack)));
+   }
+
+   public static void markClientSwap() {
+      clientSwap = true;
+   }
+
+   public static void onServerSlotUpdate() {
+      if (clientSwap) {
+         clientSwap = false;
+      }
+   }
+
+   public static int getServerSlot(net.minecraft.network.packet.s2c.play.UpdateSelectedSlotS2CPacket packet) {
+      try {
+         return SLOT_FIELD != null ? SLOT_FIELD.getInt(packet) : -1;
+      } catch (IllegalAccessException e) {
+         return -1;
+      }
+   }
+
+   public static boolean isClientSwap() {
+      return clientSwap;
    }
 
    public static void swapWithBypassGrim(Runnable runnable) {
@@ -442,6 +483,90 @@ public final class PlayerInventoryUtil implements IClient {
       }
    }
 
+   public static void swapAndUseWithSlotFix(Item item) {
+      int slot = find((Item)item, 9, 45);
+      int slotHotbar = find((Item)item, 0, 8);
+      int previousSlot = mc.player.getInventory().selectedSlot;
+      if (mc.player.getMainHandStack().getItem() == item) {
+         mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
+      } else if (mc.player.getOffHandStack().getItem() == item) {
+         mc.interactionManager.interactItem(mc.player, Hand.OFF_HAND);
+      } else {
+         if (slotHotbar != -1) {
+            markClientSwap();
+            mc.player.getInventory().selectedSlot = slotHotbar;
+            mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
+            mc.player.getInventory().selectedSlot = previousSlot;
+         }
+
+         if (slotHotbar == -1 && slot != -1) {
+            int slotCorrectable = -1;
+
+            for(int slotNone = 0; slotNone < 8; ++slotNone) {
+               ItemStack stack = mc.player.getInventory().getStack(slotNone);
+               if (stack.isEmpty()) {
+                  slotCorrectable = slotNone;
+               }
+
+               UseAction action = stack.getUseAction();
+               if (action == UseAction.NONE) {
+                  slotCorrectable = slotNone;
+               }
+            }
+
+            boolean wasSprinting;
+            if (slotCorrectable == -1) {
+               wasSprinting = false;
+               if (mc.player.isSprinting()) {
+                  mc.getNetworkHandler().sendPacket(new PlayerInputC2SPacket(new PlayerInput(false, false, false, false, false, false, false)));
+                  mc.player.setSprinting(false);
+                  mc.getNetworkHandler().sendPacket(new ClientCommandC2SPacket(mc.player, Mode.STOP_SPRINTING));
+                  if (!AutoSprint.INSTANCE.isEnabled()) {
+                     mc.options.sprintKey.setPressed(false);
+                  }
+
+                  wasSprinting = true;
+               }
+
+               mc.interactionManager.clickSlot(0, slot, 8, SlotActionType.SWAP, mc.player);
+               mc.getNetworkHandler().sendPacket(new CloseHandledScreenC2SPacket(0));
+               markClientSwap();
+               mc.player.getInventory().selectedSlot = slotCorrectable;
+               mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
+               mc.player.getInventory().selectedSlot = previousSlot;
+               if (wasSprinting) {
+                  mc.getNetworkHandler().sendPacket(new PlayerInputC2SPacket(mc.player.input.playerInput));
+               }
+            } else {
+               wasSprinting = false;
+               if (mc.player.isSprinting()) {
+                  mc.getNetworkHandler().sendPacket(new PlayerInputC2SPacket(new PlayerInput(false, false, false, false, false, false, false)));
+                  mc.player.setSprinting(false);
+                  mc.getNetworkHandler().sendPacket(new ClientCommandC2SPacket(mc.player, Mode.STOP_SPRINTING));
+                  if (!AutoSprint.INSTANCE.isEnabled()) {
+                     mc.options.sprintKey.setPressed(false);
+                  }
+
+                  wasSprinting = true;
+               }
+
+               mc.interactionManager.clickSlot(0, slot, slotCorrectable, SlotActionType.SWAP, mc.player);
+               mc.getNetworkHandler().sendPacket(new CloseHandledScreenC2SPacket(0));
+               markClientSwap();
+               mc.player.getInventory().selectedSlot = slotCorrectable;
+               mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
+               mc.player.getInventory().selectedSlot = previousSlot;
+               mc.interactionManager.clickSlot(0, slot, slotCorrectable, SlotActionType.SWAP, mc.player);
+               mc.getNetworkHandler().sendPacket(new CloseHandledScreenC2SPacket(0));
+               if (wasSprinting) {
+                  mc.getNetworkHandler().sendPacket(new PlayerInputC2SPacket(mc.player.input.playerInput));
+               }
+            }
+         }
+
+      }
+   }
+
    public static void moveItem(Slot from, int to) {
       if (from != null) {
          moveItem(from.id, to, false, false);
@@ -500,9 +625,5 @@ public final class PlayerInventoryUtil implements IClient {
    @Generated
    private PlayerInventoryUtil() {
       throw new UnsupportedOperationException("This is a utility class and cannot be instantiated");
-   }
-
-   static {
-      moveKeys = List.of(mc.options.forwardKey, mc.options.backKey, mc.options.leftKey, mc.options.rightKey, mc.options.jumpKey);
    }
 }

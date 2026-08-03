@@ -133,6 +133,7 @@ public final class ModuleManager implements IMinecraft {
     }
 
     private void registerMisc() {
+        registerModule(SlotFix.INSTANCE);
         registerModule(ServerHelper.INSTANCE);
         registerModule(ElytraHelper.INSTANCE);
         registerModule(ItemScroller.INSTANCE);
