@@ -159,6 +159,7 @@ public class LegitRotation extends RotationBase {
 
     public boolean shouldAttack(LivingEntity target) {
         if (target == null) return false;
+        if (Aura.INSTANCE == null || !Aura.INSTANCE.isEnabled()) return true;
         
         // Вычисляем идеальный угол к цели
         Vec3d targetPos = getAimPoint(target);

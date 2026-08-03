@@ -39,7 +39,7 @@ dependencies {
     // Вшиваем nether-pathfinder через shadow
     shadow "dev.babbaj:nether-pathfinder:1.4.1"
 
-    implementation 'com.microsoft.onnxruntime:onnxruntime:1.18.0'
+    shadow 'com.microsoft.onnxruntime:onnxruntime:1.18.0'
 
     minecraft("com.mojang:minecraft:${project.minecraft_version}")
     mappings("net.fabricmc:yarn:${project.yarn_mappings}:v2")
