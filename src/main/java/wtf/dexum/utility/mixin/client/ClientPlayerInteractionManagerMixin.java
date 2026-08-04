@@ -54,6 +54,9 @@ public abstract class ClientPlayerInteractionManagerMixin {
       cancellable = true
    )
    public void clickSlotHook(int syncId, int slotId, int button, SlotActionType actionType, PlayerEntity player, CallbackInfo info) {
+      // Помечаем клиентский клик по слоту
+      wtf.dexum.utility.game.player.PlayerInventoryUtil.markClientSwap();
+      
       EventClickSlot event = new EventClickSlot(syncId, slotId, button, actionType);
       EventManager.call(event);
       if (event.isCancelled()) {

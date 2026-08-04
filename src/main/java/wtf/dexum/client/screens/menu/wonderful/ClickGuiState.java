@@ -11,10 +11,27 @@ import wtf.dexum.client.modules.api.setting.impl.*;
 
 import java.util.*;
 
+/**
+ * ClickGuiState - Класс для хранения состояния ClickGUI
+ * 
+ * Этот класс отвечает за:
+ * - Хранение позиций всех элементов интерфейса
+ * - Управление анимациями (открытие модулей, переключатели, слайдеры)
+ * - Обработку поиска и фильтрации модулей
+ * - Управление скроллингом в категориях
+ * - Хранение состояния привязки клавиш
+ */
 public class ClickGuiState {
+    // ============== КОНСТАНТЫ ==============
+    
+    /**
+     * Словарь для конвертации русских букв в английские
+     * Нужен для поддержки русской раскладки при поиске модулей
+     */
     private static final Map<Character, Character> RU_TO_EN = new HashMap<>();
 
     static {
+        // Инициализация словаря русских и английских букв
         String ru = "йцукенгшщзхъфывапролджэячсмитьбюЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ";
         String en = "qwertyuiop[]asdfghjkl;'zxcvbnm,.QWERTYUIOP[]ASDFGHJKL;'ZXCVBNM,.";
         int length = Math.min(ru.length(), en.length());

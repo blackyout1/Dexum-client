@@ -29,6 +29,7 @@ import wtf.dexum.utility.render.display.base.color.ColorRGBA;
 public final class DrawUtil implements IWindow {
    public static final float DEFAULT_SMOOTHNESS = 0.8F;
    public static GlProgram rectangleProgram;
+   private static GlProgram rectangleInnerShadowProgram;
    private static GlProgram squircleProgram;
    private static GlProgram roundedTextureProgram;
    private static GlProgram squircleTextureProgram;
@@ -46,6 +47,7 @@ public final class DrawUtil implements IWindow {
 
    public static void initializeShaders() {
       rectangleProgram = new GlProgram(Dexum.id("rectangle/data"), VertexFormats.POSITION_COLOR);
+      rectangleInnerShadowProgram = new GlProgram(Dexum.id("rectangle_inner_shadow/data"), VertexFormats.POSITION_COLOR);
       squircleProgram = new GlProgram(Dexum.id("squircle/data"), VertexFormats.POSITION_COLOR);
       squircleTextureProgram = new GlProgram(Dexum.id("squircle_texture/data"), VertexFormats.POSITION_TEXTURE_COLOR);
       roundedTextureProgram = new GlProgram(Dexum.id("texture/data"), VertexFormats.POSITION_TEXTURE_COLOR);
@@ -283,6 +285,38 @@ public final class DrawUtil implements IWindow {
 
    public static void drawRoundedRect(MatrixStack matrices, float x, float y, float width, float height, BorderRadius borderRadius, Gradient gradient) {
       drawRoundedRect(matrices, x, y, width, height, borderRadius, gradient.getTopLeftColor(), gradient.getBottomLeftColor(), gradient.getBottomRightColor(), gradient.getTopRightColor());
+   }
+
+   public static void drawRoundedRectWithInnerShadow(MatrixStack matrices, float x, float y, float width, float height, BorderRadius borderRadius, ColorRGBA color, float innerShadowDepth) {
+      if (rectangleInnerShadowProgram == null || rectangleInnerShadowProgram.backingProgram == null) {
+         // Fallback to regular rounded rect if shader not available
+         drawRoundedRect(matrices, x, y, width, height, borderRadius, color);
+         return;
+      }
+
+      matrices.push();
+      Matrix4f matrix4f = matrices.peek().getPositionMatrix();
+      float smoothness = 0.8F;
+      rectangleInnerShadowProgram.use();
+      rectangleInnerShadowProgram.findUniform("Size").set(width, height);
+      rectangleInnerShadowProgram.findUniform("Radius").set(borderRadius.topLeftRadius(), borderRadius.bottomLeftRadius(), borderRadius.topRightRadius(), borderRadius.bottomRightRadius());
+      rectangleInnerShadowProgram.findUniform("Smoothness").set(smoothness);
+      rectangleInnerShadowProgram.findUniform("InnerShadowDepth").set(innerShadowDepth);
+      drawSetup();
+      float horizontalPadding = -smoothness / 2.0F + smoothness * 2.0F;
+      float verticalPadding = smoothness / 2.0F + smoothness;
+      float adjustedX = x - horizontalPadding / 2.0F;
+      float adjustedY = y - verticalPadding / 2.0F;
+      float adjustedWidth = width + horizontalPadding;
+      float adjustedHeight = height + verticalPadding;
+      BufferBuilder builder = RenderSystem.renderThreadTesselator().begin(DrawMode.QUADS, VertexFormats.POSITION_COLOR);
+      builder.vertex(matrix4f, adjustedX, adjustedY, 0.0F).color(color.getRGB());
+      builder.vertex(matrix4f, adjustedX, adjustedY + adjustedHeight, 0.0F).color(color.getRGB());
+      builder.vertex(matrix4f, adjustedX + adjustedWidth, adjustedY + adjustedHeight, 0.0F).color(color.getRGB());
+      builder.vertex(matrix4f, adjustedX + adjustedWidth, adjustedY, 0.0F).color(color.getRGB());
+      BufferRenderer.drawWithGlobalProgram(builder.end());
+      drawEnd();
+      matrices.pop();
    }
 
    public static void drawRoundedBorder(MatrixStack matrices, float x, float y, float width, float height, float borderThickness, BorderRadius borderRadius, ColorRGBA borderColor) {

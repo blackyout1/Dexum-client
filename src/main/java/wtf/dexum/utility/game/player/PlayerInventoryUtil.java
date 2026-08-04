@@ -46,18 +46,18 @@ public final class PlayerInventoryUtil implements IClient {
    public static final List<KeyBinding> moveKeys;
 
    private static boolean clientSwap = false;
-   private static java.lang.reflect.Field SLOT_FIELD;
+   private static java.lang.reflect.Field SLOT_FIELD_S2C;
 
    static {
       moveKeys = List.of(mc.options.forwardKey, mc.options.backKey, mc.options.leftKey, mc.options.rightKey, mc.options.jumpKey);
       try {
-         SLOT_FIELD = UpdateSelectedSlotC2SPacket.class.getDeclaredField("slot");
-         SLOT_FIELD.setAccessible(true);
+         SLOT_FIELD_S2C = net.minecraft.network.packet.s2c.play.UpdateSelectedSlotS2CPacket.class.getDeclaredField("slot");
+         SLOT_FIELD_S2C.setAccessible(true);
       } catch (NoSuchFieldException e) {
-         for (java.lang.reflect.Field field : UpdateSelectedSlotC2SPacket.class.getDeclaredFields()) {
+         for (java.lang.reflect.Field field : net.minecraft.network.packet.s2c.play.UpdateSelectedSlotS2CPacket.class.getDeclaredFields()) {
             if (field.getType() == int.class) {
                field.setAccessible(true);
-               SLOT_FIELD = field;
+               SLOT_FIELD_S2C = field;
                break;
             }
          }
@@ -82,7 +82,7 @@ public final class PlayerInventoryUtil implements IClient {
 
    public static int getServerSlot(net.minecraft.network.packet.s2c.play.UpdateSelectedSlotS2CPacket packet) {
       try {
-         return SLOT_FIELD != null ? SLOT_FIELD.getInt(packet) : -1;
+         return SLOT_FIELD_S2C != null ? SLOT_FIELD_S2C.getInt(packet) : -1;
       } catch (IllegalAccessException e) {
          return -1;
       }
@@ -149,6 +149,9 @@ public final class PlayerInventoryUtil implements IClient {
    }
 
    public static void clickSlot(int windowId, int slotId, int buttonId, SlotActionType clickType, boolean silent) {
+      // Помечаем клиентское действие со слотами
+      markClientSwap();
+      
       mc.interactionManager.clickSlot(windowId, slotId, buttonId, clickType, mc.player);
       if (silent) {
          mc.player.currentScreenHandler.onSlotClick(slotId, buttonId, clickType, mc.player);

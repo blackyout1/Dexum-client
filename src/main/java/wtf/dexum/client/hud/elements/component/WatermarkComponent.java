@@ -150,65 +150,102 @@ public class WatermarkComponent extends DraggableHudElement {
             return;
         }
 
-        // Параметры отрисовки
-        float fontSize = 7.5f;
-        float logoFontSize = 9.0f;
-        float capsuleHeight = 16.0f;
-        float capsulePadding = 7.0f;
-        float capsuleGap = 4.0f;
-        float rowGap = 4.0f;
-
-        // Рисуем все элементы как отдельные капсулы
-        float currentX = posX;
-        float currentY = posY;
-        float maxWidth = 0;
+        // Параметры отрисовки (как в Delta)
+        // Все размеры делим на 2 из-за scale 2.0F
+        float fontSize = 5.5f;        // 5.5 * 2 = 11px на экране (как в Delta!)
+        float capsuleHeight = 13.5f;  // 13.5 * 2 = 27px на экране (высота как в Delta)
+        float capsulePadding = 6.0f;  // 6 * 2 = 12px на экране
+        float capsuleGap = 2.0f;      // 2 * 2 = 4px на экране
+        float rowGap = 2.0f;          // 2 * 2 = 4px на экране
+        float borderRadius = 6.75f;   // 6.75 * 2 = 13.5px на экране (половина высоты)
+        float minCapsuleWidth = 35.0f;
         int itemsPerRow = 4;
+
+        // Сначала вычисляем ширины всех строк
+        List<Float> rowWidths = new ArrayList<>();
+        float currentRowWidth = 0;
         
         for (int i = 0; i < items.size(); i++) {
             String text = items.get(i);
-            float textWidth;
-            float capsuleWidth;
+            String displayText = text.equals("LOGO") ? "Dexum" : text;
+            float textW = Fonts.SF.getWidth(displayText, fontSize);
+            float capsuleWidth = Math.max(textW + capsulePadding * 2, minCapsuleWidth);
             
-            if (text.equals("LOGO")) {
-                // Для логотипа: буква D + текст "Dexum"
-                float dWidth = Fonts.SEMIBOLD.getWidth("D", logoFontSize);
-                float dexumWidth = Fonts.MEDIUM.getWidth("exum", fontSize);
-                capsuleWidth = dWidth + dexumWidth + capsulePadding * 2;
-            } else {
-                textWidth = Fonts.MEDIUM.getWidth(text, fontSize);
-                capsuleWidth = textWidth + capsulePadding * 2;
+            currentRowWidth += capsuleWidth;
+            if (i % itemsPerRow != itemsPerRow - 1) {
+                currentRowWidth += capsuleGap;
             }
             
-            // Рисуем капсулу
+            if ((i + 1) % itemsPerRow == 0 || i == items.size() - 1) {
+                rowWidths.add(currentRowWidth);
+                currentRowWidth = 0;
+            }
+        }
+        
+        float maxWidth = 0;
+        for (float w : rowWidths) {
+            maxWidth = Math.max(maxWidth, w);
+        }
+
+        // Теперь рисуем с центровкой каждой строки
+        float currentX = posX;
+        float currentY = posY;
+        int currentRow = 0;
+        
+        // Центрируем первую строку
+        if (!rowWidths.isEmpty()) {
+            float rowCenterOffset = (maxWidth - rowWidths.get(0)) / 2.0f;
+            currentX += rowCenterOffset;
+        }
+        
+        for (int i = 0; i < items.size(); i++) {
+            String text = items.get(i);
+            String displayText = text.equals("LOGO") ? "Dexum" : text;
+            float textW = Fonts.SF.getWidth(displayText, fontSize);
+            float capsuleWidth = Math.max(textW + capsulePadding * 2, minCapsuleWidth);
+            
+            // Рисуем основную капсулу
             DrawUtil.drawRoundedRect(ctx.getMatrices(), currentX, currentY, capsuleWidth, capsuleHeight,
-                BorderRadius.all(capsuleHeight / 2), hudBg.withAlpha(200));
+                BorderRadius.all(borderRadius), hudBg.withAlpha(200));
             
-            // Рисуем содержимое
-            if (text.equals("LOGO")) {
-                // Рисуем букву "D" цветом темы
-                float dWidth = Fonts.SEMIBOLD.getWidth("D", logoFontSize);
-                float logoY = currentY + (capsuleHeight - logoFontSize) / 2 + 1.0f;
-                ctx.drawText(Fonts.SEMIBOLD.getFont(logoFontSize), "D", 
-                    currentX + capsulePadding, logoY, themeColor);
-                
-                // Рисуем "exum" белым
-                float contentY = currentY + (capsuleHeight - fontSize) / 2 + 0.5f;
-                ctx.drawText(Fonts.MEDIUM.getFont(fontSize), "exum", 
-                    currentX + capsulePadding + dWidth, contentY, ColorRGBA.WHITE);
-            } else {
-                // Обычный текст
-                float contentY = currentY + (capsuleHeight - fontSize) / 2 + 0.5f;
-                ctx.drawText(Fonts.MEDIUM.getFont(fontSize), text, 
-                    currentX + capsulePadding, contentY, ColorRGBA.WHITE);
+            // Внутренняя тень: многослойное затемнение от края к центру
+            // Эффект виньетки - темно у края, прозрачно в центре
+            int shadowLayers = 3;
+            for (int s = 0; s < shadowLayers; s++) {
+                float inset = s * 0.3f; // смещение внутрь
+                float alpha = (shadowLayers - s) * 12; // 36, 24, 12
+                DrawUtil.drawRoundedRect(ctx.getMatrices(),
+                    currentX + inset, currentY + inset,
+                    capsuleWidth - inset * 2, capsuleHeight - inset * 2,
+                    BorderRadius.all(Math.max(0.5f, borderRadius - inset)),
+                    new ColorRGBA(0, 0, 0, (int)alpha));
             }
+            
+            // Текст: горизонтально по центру капсулы, вертикально по центру
+            float textWidth = Fonts.SF.getWidth(displayText, fontSize);
+            
+            // Горизонтальное центрирование
+            float textX = currentX + (capsuleWidth - textWidth) / 2.0f;
+            
+            // Вертикальное центрирование: шрифты рисуются от baseline вверх,
+            // поэтому смещаем на 75% размера шрифта вниз от центра
+            float textY = currentY + (capsuleHeight - fontSize) / 2.0f + fontSize * 0.15f;
+            
+            ctx.drawText(Fonts.SF.getFont(fontSize), displayText, textX, textY, ColorRGBA.WHITE);
             
             currentX += capsuleWidth + capsuleGap;
-            maxWidth = Math.max(maxWidth, currentX - posX - capsuleGap);
             
             // Переход на новую строку
             if ((i + 1) % itemsPerRow == 0 && i + 1 < items.size()) {
+                currentRow++;
                 currentX = posX;
                 currentY += capsuleHeight + rowGap;
+                
+                // Центрируем следующую строку
+                if (currentRow < rowWidths.size()) {
+                    float rowCenterOffset = (maxWidth - rowWidths.get(currentRow)) / 2.0f;
+                    currentX += rowCenterOffset;
+                }
             }
         }
 
