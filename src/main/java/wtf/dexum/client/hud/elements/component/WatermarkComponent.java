@@ -4,6 +4,7 @@ import wtf.dexum.Dexum;
 import wtf.dexum.base.animations.base.Animation;
 import wtf.dexum.base.animations.base.Easing;
 import wtf.dexum.base.font.Fonts;
+import wtf.dexum.base.font.MsdfFont;
 import wtf.dexum.base.theme.Theme;
 import wtf.dexum.client.hud.elements.draggable.DraggableHudElement;
 import wtf.dexum.client.modules.api.setting.impl.BooleanSetting;
@@ -167,9 +168,47 @@ public class WatermarkComponent extends DraggableHudElement {
         
         for (int i = 0; i < items.size(); i++) {
             String text = items.get(i);
-            String displayText = text.equals("LOGO") ? "Dexum" : text;
+            boolean isLogo = text.equals("LOGO");
+            String displayText = isLogo ? "Dexum" : text;
+            
+            // Определяем иконку (дублируем логику)
+            String icon = "";
+            MsdfFont iconFont = Fonts.ICONS2;
+            float iconSizeMultiplier = 1.0f; // для регулировки размера отдельных иконок
+            
+            if (text.contains("FPS")) {
+                icon = "f"; // компьютер/монитор
+                iconFont = Fonts.FONT;
+            }
+            else if (text.contains("ms")) {
+                icon = "\uf0ac"; // глобус (работает из ICONS2)
+            }
+            else if (text.contains(":")) {
+                icon = "\uf017"; // часы (работают из ICONS2)
+            }
+            else if (text.contains("x ")) {
+                icon = "U"; // маркер/пин для координат (из ICONS5)
+                iconFont = Fonts.ICONS5;
+            }
+            else if (text.contains("TPS")) {
+                icon = "Y"; // сигнал Wi-Fi для TPS (из ICONS5)
+                iconFont = Fonts.ICONS5;
+            }
+            else if (text.contains("BPS")) {
+                icon = "M"; // стрелка для скорости (из ICONS5)
+                iconFont = Fonts.ICONS5;
+            }
+            else if (!isLogo && !text.contains(":") && !text.contains("FPS") && !text.contains("ms") && !text.contains("x ") && !text.contains("TPS") && !text.contains("BPS")) {
+                icon = "e"; // иконка человечка для Username (из FONT)
+                iconFont = Fonts.FONT;
+                // обычный размер
+            }
+            
+            float iconWidth = icon.isEmpty() ? 0 : iconFont.getWidth(icon, fontSize * iconSizeMultiplier);
+            float iconGap = icon.isEmpty() ? 0 : 3.0f; // увеличил отступ с 2.0f до 3.0f
             float textW = Fonts.SF.getWidth(displayText, fontSize);
-            float capsuleWidth = Math.max(textW + capsulePadding * 2, minCapsuleWidth);
+            float totalWidth = iconWidth + iconGap + textW;
+            float capsuleWidth = Math.max(totalWidth + capsulePadding * 2, minCapsuleWidth);
             
             currentRowWidth += capsuleWidth;
             if (i % itemsPerRow != itemsPerRow - 1) {
@@ -200,20 +239,58 @@ public class WatermarkComponent extends DraggableHudElement {
         
         for (int i = 0; i < items.size(); i++) {
             String text = items.get(i);
-            String displayText = text.equals("LOGO") ? "Dexum" : text;
+            boolean isLogo = text.equals("LOGO");
+            String displayText = isLogo ? "Dexum" : text;
+            
+            // Определяем иконку для каждого типа
+            String icon = "";
+            MsdfFont iconFont = Fonts.ICONS2;
+            float iconSizeMultiplier = 1.0f;
+            
+            if (text.contains("FPS")) {
+                icon = "f"; // монитор/компьютер из font.png
+                iconFont = Fonts.FONT;
+            }
+            else if (text.contains("ms")) {
+                icon = "\uf0ac"; // глобус
+            }
+            else if (text.contains(":")) {
+                icon = "\uf017"; // часы
+            }
+            else if (text.contains("x ")) {
+                icon = "U"; // маркер/пин
+                iconFont = Fonts.ICONS5;
+            }
+            else if (text.contains("TPS")) {
+                icon = "Y"; // сигнал Wi-Fi
+                iconFont = Fonts.ICONS5;
+            }
+            else if (text.contains("BPS")) {
+                icon = "M"; // стрелка
+                iconFont = Fonts.ICONS5;
+            }
+            else if (!isLogo && !text.contains(":") && !text.contains("FPS") && !text.contains("ms") && !text.contains("x ") && !text.contains("TPS") && !text.contains("BPS")) {
+                icon = "2"; // юзер
+                iconFont = Fonts.ICONS;
+                 // увеличиваем лупу больше
+            }
+            
+            // Вычисляем ширину с иконкой
+            float iconWidth = icon.isEmpty() ? 0 : iconFont.getWidth(icon, fontSize * iconSizeMultiplier);
+            float iconGap = icon.isEmpty() ? 0 : 3.0f; // увеличенный отступ
             float textW = Fonts.SF.getWidth(displayText, fontSize);
-            float capsuleWidth = Math.max(textW + capsulePadding * 2, minCapsuleWidth);
+            float totalWidth = iconWidth + iconGap + textW;
+            float capsuleWidth = Math.max(totalWidth + capsulePadding * 2, minCapsuleWidth);
             
             // Рисуем основную капсулу
             DrawUtil.drawRoundedRect(ctx.getMatrices(), currentX, currentY, capsuleWidth, capsuleHeight,
                 BorderRadius.all(borderRadius), hudBg.withAlpha(200));
             
             // Внутренняя тень: многослойное затемнение от края к центру
-            // Эффект виньетки - темно у края, прозрачно в центре
             int shadowLayers = 3;
             for (int s = 0; s < shadowLayers; s++) {
-                float inset = s * 0.3f; // смещение внутрь
-                float alpha = (shadowLayers - s) * 12; // 36, 24, 12
+                float inset = s * 0.3f;
+                float alpha = (shadowLayers - s) * 12;
                 DrawUtil.drawRoundedRect(ctx.getMatrices(),
                     currentX + inset, currentY + inset,
                     capsuleWidth - inset * 2, capsuleHeight - inset * 2,
@@ -221,16 +298,19 @@ public class WatermarkComponent extends DraggableHudElement {
                     new ColorRGBA(0, 0, 0, (int)alpha));
             }
             
-            // Текст: горизонтально по центру капсулы, вертикально по центру
-            float textWidth = Fonts.SF.getWidth(displayText, fontSize);
-            
-            // Горизонтальное центрирование
-            float textX = currentX + (capsuleWidth - textWidth) / 2.0f;
-            
-            // Вертикальное центрирование: шрифты рисуются от baseline вверх,
-            // поэтому смещаем на 75% размера шрифта вниз от центра
+            // Вертикальное центрирование
             float textY = currentY + (capsuleHeight - fontSize) / 2.0f + fontSize * 0.15f;
             
+            // Вычисляем позицию для центрирования всего контента (иконка + текст)
+            float contentStartX = currentX + (capsuleWidth - totalWidth) / 2.0f;
+            
+            // Рисуем иконку если есть
+            if (!icon.isEmpty()) {
+                ctx.drawText(iconFont.getFont(fontSize * iconSizeMultiplier), icon, contentStartX, textY, ColorRGBA.WHITE);
+            }
+            
+            // Рисуем текст справа от иконки
+            float textX = contentStartX + iconWidth + iconGap;
             ctx.drawText(Fonts.SF.getFont(fontSize), displayText, textX, textY, ColorRGBA.WHITE);
             
             currentX += capsuleWidth + capsuleGap;

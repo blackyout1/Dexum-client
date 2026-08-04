@@ -87,6 +87,7 @@ public final class ModuleManager implements IMinecraft {
     }
 
     private void registerRender() {
+        registerModule(NameTags.INSTANCE);
         registerModule(Interface.INSTANCE);
         registerModule(AntiInvisible.INSTANCE);
         registerModule(NoRender.INSTANCE);

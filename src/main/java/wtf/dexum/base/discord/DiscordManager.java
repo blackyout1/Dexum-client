@@ -43,7 +43,7 @@ public class DiscordManager implements IMinecraft {
             RichPresence presence = new RichPresence();
             presence.setDetails("DexumClient");
             presence.setState("Made by [blackyout1]");
-            presence.setLargeImage("logo", "Dexum v1.0");
+            presence.setLargeImage("dexuma", "Dexum v1.0");
             presence.setStart(System.currentTimeMillis() / 1000L);
             DiscordIPC.setActivity(presence);
         } catch (Exception e) {}
