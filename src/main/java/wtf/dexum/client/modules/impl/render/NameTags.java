@@ -356,6 +356,8 @@ public class NameTags extends Module {
                             float x2 = startX + (float)i * (iconSize + spacing);
                             ItemEnchantmentsComponent enchComp = EnchantmentHelper.getEnchantments(stack);
 
+                            // Отключено отображение зачарований брони
+                            /*
                             if (!enchComp.isEmpty()) {
                                 Map<RegistryEntry<Enchantment>, Integer> enchMap = enchComp.getEnchantmentEntries().stream()
                                         .collect(Collectors.toMap(Entry::getKey, it.unimi.dsi.fastutil.objects.Object2IntMap.Entry::getIntValue));
@@ -378,6 +380,7 @@ public class NameTags extends Module {
                                     enchantmentY -= 8.0F * scale;
                                 }
                             }
+                            */
 
                             // Название предмета в левой руке (itemType == 2 означает offHand)
                             if (offHandItemName.isEnabled() && itemType == 2) {

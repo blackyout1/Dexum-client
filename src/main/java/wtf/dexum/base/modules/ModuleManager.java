@@ -70,6 +70,7 @@ public final class ModuleManager implements IMinecraft {
         registerModule(AutoSwap.INSTANCE);
         registerModule(CrystalAura.INSTANCE);
         registerModule(AimBow.INSTANCE);
+        registerModule(NoFriendDamage.INSTANCE);
     }
 
     private void registerMovement() {
