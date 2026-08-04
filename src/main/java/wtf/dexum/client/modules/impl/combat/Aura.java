@@ -168,7 +168,7 @@ public final class Aura extends Module {
         this.raycastCheck = new BooleanSetting("Проверка на наведение", false);
         this.doubleAttack = new BooleanSetting("Двойной удар", true);
         this.predict = new NumberSetting("Насколько перегонять", 2.0F, 1.0F, 8.0F, 0.1F, () -> this.predictOnElytra.isEnabled());
-        this.critsOnlyWithSpace = new BooleanSetting("Адаптивные криты", true);
+        this.critsOnlyWithSpace = new BooleanSetting("Только с пробелом", true);
         this.visualElytraRotation = new BooleanSetting("Визуальная ротация элитр", true);
         this.keepTarget = new BooleanSetting("Удерживать одну цель", true);
         this.sprintReset = new BooleanSetting("Сброс спринта", true);

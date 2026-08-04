@@ -14,6 +14,9 @@ import wtf.dexum.utility.render.display.base.color.ColorRGBA;
 import wtf.dexum.utility.render.display.shader.DrawUtil;
 import wtf.dexum.client.modules.impl.misc.NameProtect;
 
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.util.Identifier;
+
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -21,6 +24,7 @@ import java.util.List;
 
 public class WatermarkComponent extends DraggableHudElement {
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
+    private static final Identifier LOGO_TEXTURE = Identifier.of("dexum", "icons/logo.png");
     
     // Настройки
     private final BooleanSetting showFps = new BooleanSetting("FPS", "Частота кадров", true);
@@ -79,19 +83,13 @@ public class WatermarkComponent extends DraggableHudElement {
         DrawUtil.drawRoundedRect(ctx.getMatrices(), x, y, circleSize, circleSize, BorderRadius.all(circleRadius), bg);
         DrawUtil.drawRoundedRect(ctx.getMatrices(), cardX, cardY, cardWidth, cardHeight, BorderRadius.all(4.0F), bg);
 
-        // ====== БУКВА D В ЦЕНТРЕ КРУЖКА (ЖИРНАЯ, КРУПНАЯ, ТОЧНАЯ ЦЕНТРОВКА) ======
-        String logo = "D";
-        float logoSize = 16.0F;                // размер шрифта
-        float logoWidth = Fonts.BOLD.getWidth(logo, logoSize);
-
-        // Горизонтальное центрирование
-        float logoX = x + (circleSize - logoWidth) / 2.0F;
-
-        // Вертикальное центрирование: подбираем смещение, чтобы буква оказалась ровно по центру
-        float verticalOffset = 3F;          // <-- МЕНЯЙ ЭТО ЗНАЧЕНИЕ, ЕСЛИ БУКВА НЕ ПО ЦЕНТРУ
-        float logoY = y + (circleSize - logoSize) / 2.0F + verticalOffset;
-
-        ctx.drawText(Fonts.BOLD.getFont(logoSize), logo, logoX, logoY, themeColor);
+        // ====== ЛОГОТИП В ЦЕНТРЕ КРУЖКА ======
+        float logoSize = 20.0F; // размер изображения логотипа
+        float logoX = x + (circleSize - logoSize) / 2.0F;
+        float logoY = y + (circleSize - logoSize) / 2.0F;
+        
+        // Рисуем логотип белым цветом
+        ctx.drawTexture(LOGO_TEXTURE, logoX, logoY, logoSize, logoSize, ColorRGBA.WHITE);
         // ========================================================================
 
         // Подпись (название клиента и имя игрока)
@@ -208,7 +206,11 @@ public class WatermarkComponent extends DraggableHudElement {
             float iconGap = icon.isEmpty() ? 0 : 3.0f; // увеличил отступ с 2.0f до 3.0f
             float textW = Fonts.SF.getWidth(displayText, fontSize);
             float totalWidth = iconWidth + iconGap + textW;
-            float capsuleWidth = Math.max(totalWidth + capsulePadding * 2, minCapsuleWidth);
+            
+            // Для логотипа делаем капсулу компактнее
+            float currentPadding = isLogo ? capsulePadding * 0.5f : capsulePadding;
+            float currentMinWidth = isLogo ? 20.0f : minCapsuleWidth;
+            float capsuleWidth = Math.max(totalWidth + currentPadding * 2, currentMinWidth);
             
             currentRowWidth += capsuleWidth;
             if (i % itemsPerRow != itemsPerRow - 1) {
@@ -280,11 +282,15 @@ public class WatermarkComponent extends DraggableHudElement {
             float iconGap = icon.isEmpty() ? 0 : 3.0f; // увеличенный отступ
             float textW = Fonts.SF.getWidth(displayText, fontSize);
             float totalWidth = iconWidth + iconGap + textW;
-            float capsuleWidth = Math.max(totalWidth + capsulePadding * 2, minCapsuleWidth);
+            
+            // Для логотипа делаем капсулу компактнее
+            float currentPadding = isLogo ? capsulePadding * 0.5f : capsulePadding;
+            float currentMinWidth = isLogo ? 20.0f : minCapsuleWidth;
+            float capsuleWidth = Math.max(totalWidth + currentPadding * 2, currentMinWidth);
             
             // Рисуем основную капсулу
             DrawUtil.drawRoundedRect(ctx.getMatrices(), currentX, currentY, capsuleWidth, capsuleHeight,
-                BorderRadius.all(borderRadius), hudBg.withAlpha(200));
+                BorderRadius.all(borderRadius), hudBg.withAlpha(150)); // уменьшил с 200 до 150
             
             // Внутренняя тень: многослойное затемнение от края к центру
             int shadowLayers = 3;
@@ -304,14 +310,23 @@ public class WatermarkComponent extends DraggableHudElement {
             // Вычисляем позицию для центрирования всего контента (иконка + текст)
             float contentStartX = currentX + (capsuleWidth - totalWidth) / 2.0f;
             
-            // Рисуем иконку если есть
-            if (!icon.isEmpty()) {
-                ctx.drawText(iconFont.getFont(fontSize * iconSizeMultiplier), icon, contentStartX, textY, ColorRGBA.WHITE);
+            // Для LOGO рисуем картинку вместо текста
+            if (isLogo) {
+                // Рисуем логотип вместо текста "Dexum"
+                float logoSize = capsuleHeight * 0.65f; // 65% от высоты капсулы
+                float logoX = currentX + (capsuleWidth - logoSize) / 2.0f;
+                float logoY = currentY + (capsuleHeight - logoSize) / 2.0f;
+                ctx.drawTexture(LOGO_TEXTURE, logoX, logoY, logoSize, logoSize, ColorRGBA.WHITE);
+            } else {
+                // Рисуем иконку если есть
+                if (!icon.isEmpty()) {
+                    ctx.drawText(iconFont.getFont(fontSize * iconSizeMultiplier), icon, contentStartX, textY, ColorRGBA.WHITE);
+                }
+                
+                // Рисуем текст справа от иконки
+                float textX = contentStartX + iconWidth + iconGap;
+                ctx.drawText(Fonts.SF.getFont(fontSize), displayText, textX, textY, ColorRGBA.WHITE);
             }
-            
-            // Рисуем текст справа от иконки
-            float textX = contentStartX + iconWidth + iconGap;
-            ctx.drawText(Fonts.SF.getFont(fontSize), displayText, textX, textY, ColorRGBA.WHITE);
             
             currentX += capsuleWidth + capsuleGap;
             

@@ -74,7 +74,7 @@ public final class Interface extends Module {
         this.elementsHud2.add(new WatermarkComponent("WatermarkV2", 0.0F, 0.0F, 960.0F, 495.5F, 5.0F, 5.0F, DraggableHudElement.Align.TOP_LEFT, true));
         this.elementsHud2.add(new KeybindsComponent("KeybindsV2", 0.0F, 0.0F, 960.0F, 495.5F, 5.0F, 30.0F, DraggableHudElement.Align.TOP_LEFT, true));
         this.elementsHud2.add(new PotionsComponent("PotionsV2", 0.0F, 0.0F, 960.0F, 495.5F, 5.0F, 100.0F, DraggableHudElement.Align.TOP_LEFT, true));
-        this.elementsHud2.add(new TargetHudComponent("TargetHUDV2", 0.0F, 0.0F, 960.0F, 495.5F, 0.0F, 0.0F, DraggableHudElement.Align.CENTER, true));
+        this.elementsHud2.adnew TargetHudComponent("TargetHUDV2", 0.0F, 0.0F, 960.0F, 495.5F, 0.0F, 0.0F, DraggableHudElement.Align.CENTER));
         this.elementsHud2.add(new StaffComponent("StaffV2", 0.0F, 0.0F, 960.0F, 495.5F, -5.0F, 5.0F, DraggableHudElement.Align.TOP_RIGHT, true));
         this.elementsHud2.add(new ArrayListComponent("ArrayListV2", 0.0F, 0.0F, 960.0F, 495.5F, -5.0F, 5.0F, DraggableHudElement.Align.TOP_RIGHT));
     }
