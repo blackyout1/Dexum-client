@@ -39,6 +39,7 @@ import wtf.dexum.client.modules.api.setting.impl.BooleanSetting;
 import wtf.dexum.client.modules.api.setting.impl.MultiBooleanSetting;
 import wtf.dexum.client.modules.api.setting.impl.NumberSetting;
 import wtf.dexum.client.modules.impl.misc.NameProtect;
+import wtf.dexum.client.modules.impl.misc.PartyModuleCloud;
 import wtf.dexum.client.modules.impl.misc.ScoreboardHealth;
 import wtf.dexum.utility.game.other.ReplaceUtil;
 import wtf.dexum.utility.game.player.PlayerIntersectionUtil;
@@ -68,6 +69,7 @@ public class NameTags extends Module {
     private final BooleanSetting showDistance = new BooleanSetting("Показывать дистанцию", false);
     private final BooleanSetting showPing = new BooleanSetting("Показывать пинг", false);
     private final BooleanSetting showFriendTag = new BooleanSetting("Показывать тег друга [F]", true);
+    private final BooleanSetting showPartyTag = new BooleanSetting("Показывать тег пати [P]", true);
     private final BooleanSetting hpBarUnderName = new BooleanSetting("HP бар под неймтегом", false);
     
     // Настройки предметов
@@ -202,9 +204,15 @@ public class NameTags extends Module {
             // Формируем текст
             Text nameText = Text.empty();
             boolean isFriend = Dexum.getInstance().getFriendManager().isFriend(entity.getNameForScoreboard());
+            boolean isPartyMember = PartyModuleCloud.INSTANCE.isEnabled() && PartyModuleCloud.INSTANCE.isInParty() 
+                && PartyModuleCloud.INSTANCE.isPlayerInParty(entity.getUuid().toString());
             
+            // Тег пати (приоритетнее друга)
+            if (showPartyTag.isEnabled() && isPartyMember) {
+                nameText = nameText.copy().append(Text.literal("[P] ").setStyle(Style.EMPTY.withColor(Formatting.GREEN)));
+            }
             // Тег друга
-            if (showFriendTag.isEnabled() && isFriend) {
+            else if (showFriendTag.isEnabled() && isFriend) {
                 nameText = nameText.copy().append(Text.literal("[F] ").setStyle(Style.EMPTY.withColor(Formatting.GREEN)));
             }
             
@@ -256,9 +264,14 @@ public class NameTags extends Module {
             float tagY = posY - 1.0F * scale;
 
             // Фон тега
-            ColorRGBA bgColor = isFriend && showFriendTag.isEnabled() 
-                ? new ColorRGBA(0, 166, 0, alpha) 
-                : themeDark;
+            ColorRGBA bgColor;
+            if (showPartyTag.isEnabled() && isPartyMember) {
+                bgColor = new ColorRGBA(0, 200, 0, alpha); // Ярко-зелёный для party
+            } else if (isFriend && showFriendTag.isEnabled()) {
+                bgColor = new ColorRGBA(0, 166, 0, alpha); // Зелёный для друзей
+            } else {
+                bgColor = themeDark; // Обычный цвет
+            }
             
             // Тень
             DrawUtil.drawRoundedRect(e.getContext().getMatrices(), tagX - 0.5F, tagY - 0.5F + 1.0F, totalTagWidth + 1.0F, totalHeight + 1.0F, BorderRadius.all(2.0F), new ColorRGBA(0, 0, 0, alpha / 3));

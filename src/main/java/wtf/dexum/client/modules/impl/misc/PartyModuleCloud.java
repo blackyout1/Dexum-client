@@ -191,6 +191,10 @@ public final class PartyModuleCloud extends Module {
         return false;
     }
 
+    public boolean isPlayerInParty(String uuid) {
+        return members.containsKey(uuid);
+    }
+
     public void createParty(String code) {
         if (wsClient == null || !wsClient.isOpen()) {
             sendMessage("§cНе подключено к серверу");
@@ -312,17 +316,25 @@ public final class PartyModuleCloud extends Module {
         matrices.translate(x, y, z);
 
         Tessellator tessellator = Tessellator.getInstance();
-        BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.DEBUG_LINE_STRIP, VertexFormats.POSITION_COLOR);
         
-        for (int i = 0; i <= 36; i++) {
-            double angle = Math.PI * 2 * i / 36;
-            double dx = 0.6 * Math.cos(angle);
-            double dz = 0.6 * Math.sin(angle);
-            buffer.vertex(matrices.peek().getPositionMatrix(), (float) dx, 0, (float) dz)
-                  .color(0x55, 0xFF, 0x55, 0xFF);
+        // Рисуем 3 круга для "мясистости"
+        for (int layer = 0; layer < 3; layer++) {
+            float radius = 0.6f + layer * 0.05f; // Увеличиваем радиус с каждым слоем
+            int alpha = 255 - layer * 60; // Уменьшаем прозрачность к краям
+            
+            BufferBuilder buffer = tessellator.begin(VertexFormat.DrawMode.DEBUG_LINE_STRIP, VertexFormats.POSITION_COLOR);
+            
+            for (int i = 0; i <= 72; i++) { // Увеличено с 36 до 72 для гладкости
+                double angle = Math.PI * 2 * i / 72;
+                double dx = radius * Math.cos(angle);
+                double dz = radius * Math.sin(angle);
+                buffer.vertex(matrices.peek().getPositionMatrix(), (float) dx, 0, (float) dz)
+                      .color(0x55, 0xFF, 0x55, alpha);
+            }
+            
+            BufferRenderer.drawWithGlobalProgram(buffer.end());
         }
         
-        BufferRenderer.drawWithGlobalProgram(buffer.end());
         matrices.pop();
     }
 }
