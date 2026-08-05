@@ -15,6 +15,8 @@ import wtf.dexum.base.comand.impl.ConfigCommand;
 import wtf.dexum.base.comand.impl.FriendCommand;
 import wtf.dexum.base.comand.impl.GPSCommand;
 import wtf.dexum.base.comand.impl.MacroCommand;
+import wtf.dexum.base.comand.impl.PartyCommand;
+import wtf.dexum.base.comand.impl.PartyCloudCommand;
 import wtf.dexum.base.comand.impl.RCTCommand;
 
 public class CommandManager {
@@ -35,6 +37,8 @@ public class CommandManager {
       this.registerCommand(new ConfigCommand());
       this.registerCommand(new RCTCommand());
       this.registerCommand(new GPSCommand());
+      this.registerCommand(new PartyCommand());
+      this.registerCommand(new PartyCloudCommand());
    }
 
    @Native
