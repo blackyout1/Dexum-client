@@ -151,6 +151,7 @@ public final class ModuleManager implements IMinecraft {
         registerModule(FakePlayer.INSTANCE);
         registerModule(ChatHelper.INSTANCE);
         registerModule(PartyModule.INSTANCE);
+        registerModule(PartyModuleCloud.INSTANCE); // Облачная версия
     }
 
     private void registerModule(Module module) {

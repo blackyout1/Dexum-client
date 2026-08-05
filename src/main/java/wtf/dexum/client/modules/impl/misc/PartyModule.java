@@ -6,6 +6,7 @@ import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.render.*;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.network.packet.c2s.play.ChatMessageC2SPacket;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
@@ -64,24 +65,31 @@ public final class PartyModule extends Module {
     private static class PartyData {
         private final String code;
         private UUID leader;
+        private boolean validated; // Партия подтверждена (получено хотя бы одно сообщение)
 
         public PartyData(String code, UUID leader) {
             this.code = code;
             this.leader = leader;
+            this.validated = (leader != null); // Если создаём сами - сразу validated
         }
 
         public String getCode() { return code; }
         public UUID getLeader() { return leader; }
         public void setLeader(UUID leader) { this.leader = leader; }
+        public boolean isValidated() { return validated; }
+        public void setValidated(boolean validated) { this.validated = validated; }
     }
 
     // === Поля модуля ===
     private PartyData currentParty;
     private final ConcurrentHashMap<UUID, PartyMember> members = new ConcurrentHashMap<>();
     private int tickCounter = 0;
+    private int validationTimer = 0; // Таймер для проверки существования партии
 
     private boolean showNametags = true;
     private boolean showWaypoints = true;
+    
+    private static final int VALIDATION_TIMEOUT = 100; // 5 секунд (100 тиков)
 
     private PartyModule() {}
 
@@ -118,23 +126,26 @@ public final class PartyModule extends Module {
     @EventTarget
     public void onPacket(wtf.dexum.base.events.impl.server.EventPacket event) {
         if (!isEnabled()) return;
-        if (!event.isReceive()) return;
         
-        // Обрабатываем входящие сообщения чата
-        if (event.getPacket() instanceof net.minecraft.network.packet.s2c.play.GameMessageS2CPacket packet) {
-            String message = packet.content().getString();
-            if (message.startsWith("!party_pos ")) {
-                parsePositionUpdate(message);
+        // Обрабатываем входящие сообщения чата для синхронизации позиций
+        if (event.isReceive()) {
+            if (event.getPacket() instanceof net.minecraft.network.packet.s2c.play.GameMessageS2CPacket packet) {
+                String message = packet.content().getString();
+                if (message.startsWith("!party_pos ")) {
+                    parsePositionUpdate(message);
+                    // СКРЫВАЕМ сообщение от чата - игроки не должны видеть координаты
+                    event.cancel();
+                }
             }
         }
     }
 
-    // === Состояние ===
-    private boolean isInParty() {
+    // === Публичные методы для CommandManager ===
+    public boolean isInParty() {
         return currentParty != null;
     }
 
-    private boolean isLeader() {
+    public boolean isLeader() {
         return isInParty() && currentParty.getLeader() != null
                 && currentParty.getLeader().equals(client.player.getUuid());
     }
@@ -143,100 +154,41 @@ public final class PartyModule extends Module {
         return isInParty() ? currentParty.getCode() : null;
     }
 
-    // === Обработка команд ===
-    private void handleCommand(String full) {
-        String[] args = full.substring(7).split(" ");
-        if (args.length == 0) {
-            sendMessage("Использование: .party <create|join|leave|disband|members>");
-            return;
-        }
-        String cmd = args[0].toLowerCase();
-        switch (cmd) {
-            case "create" -> {
-                if (args.length < 2) {
-                    sendMessage("Укажите код: .party create <код>");
-                    return;
-                }
-                createParty(args[1]);
-            }
-            case "join" -> {
-                if (args.length < 2) {
-                    sendMessage("Укажите код: .party join <код>");
-                    return;
-                }
-                joinParty(args[1]);
-            }
-            case "leave" -> {
-                if (!isInParty()) {
-                    sendMessage("Вы не в партии.");
-                    return;
-                }
-                leaveParty();
-                sendMessage("Вы покинули партию.");
-            }
-            case "disband" -> {
-                if (!isInParty()) {
-                    sendMessage("Вы не в партии.");
-                    return;
-                }
-                if (!isLeader()) {
-                    sendMessage("Только создатель может распустить партию.");
-                    return;
-                }
-                disbandParty();
-            }
-            case "members" -> {
-                if (!isInParty()) {
-                    sendMessage("Вы не в партии.");
-                    return;
-                }
-                showMembers();
-            }
-            default -> sendMessage("Неизвестная подкоманда. Используйте: create, join, leave, disband, members");
-        }
-    }
-
-    public void processCommand(String message) {
-        if (message.startsWith(".party ")) {
-            handleCommand(message);
-        } else if (message.startsWith("!party_pos ")) {
-            parsePositionUpdate(message);
-        }
-    }
-
-    private void createParty(String code) {
+    // === Публичные методы для команд ===
+    public void createParty(String code) {
         if (isInParty()) leaveParty();
         currentParty = new PartyData(code, client.player.getUuid());
         members.clear();
         addSelf();
-        sendMessage("Партия создана! Код: " + code);
+        sendMessage("Пати создана! Код: " + code);
     }
 
-    private void joinParty(String code) {
+    public void joinParty(String code) {
         if (isInParty()) leaveParty();
         currentParty = new PartyData(code, null);
         members.clear();
         addSelf();
-        sendMessage("Вы присоединились к партии с кодом " + code);
+        validationTimer = 0; // Запускаем таймер валидации
+        sendMessage("Подключение к пати " + code + "... Ожидание подтверждения.");
     }
 
-    private void leaveParty() {
+    public void leaveParty() {
         currentParty = null;
         members.clear();
     }
 
-    private void disbandParty() {
+    public void disbandParty() {
         currentParty = null;
         members.clear();
-        sendMessage("Партия распущена.");
+        sendMessage("Пати распущена.");
     }
 
-    private void showMembers() {
+    public void showMembers() {
         if (members.isEmpty()) {
-            sendMessage("В партии никого нет.");
+            sendMessage("В пати никого нет.");
             return;
         }
-        StringBuilder sb = new StringBuilder("Участники партии (" + getPartyCode() + "): ");
+        StringBuilder sb = new StringBuilder("Участники пати (" + getPartyCode() + "): ");
         for (PartyMember m : members.values()) {
             sb.append(m.getName()).append(", ");
         }
@@ -260,6 +212,17 @@ public final class PartyModule extends Module {
     // === Синхронизация позиций ===
     private void onTick() {
         if (!isInParty()) return;
+        
+        // Проверка валидации партии при join
+        if (!currentParty.isValidated() && !isLeader()) {
+            validationTimer++;
+            if (validationTimer >= VALIDATION_TIMEOUT) {
+                sendMessage("§cПати с кодом " + currentParty.getCode() + " не найдена. Возможно, никто не создал эту пати.");
+                leaveParty();
+                return;
+            }
+        }
+        
         tickCounter++;
         if (tickCounter >= 20) { // Раз в секунду
             tickCounter = 0;
@@ -292,6 +255,13 @@ public final class PartyModule extends Module {
         if (parts.length < 7) return;
         String code = parts[1];
         if (!code.equals(getPartyCode())) return;
+        
+        // Партия подтверждена - кто-то реально отправляет позиции
+        if (!currentParty.isValidated()) {
+            currentParty.setValidated(true);
+            sendMessage("§aПати " + code + " найдена! Подключено.");
+        }
+        
         String name = parts[2];
         try {
             double x = Double.parseDouble(parts[3]);

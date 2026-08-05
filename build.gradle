@@ -40,6 +40,9 @@ dependencies {
     shadow "dev.babbaj:nether-pathfinder:1.4.1"
 
     shadow 'com.microsoft.onnxruntime:onnxruntime:1.18.0'
+    
+    // WebSocket для облачной Party системы
+    shadow 'org.java-websocket:Java-WebSocket:1.5.4'
 
     minecraft("com.mojang:minecraft:${project.minecraft_version}")
     mappings("net.fabricmc:yarn:${project.yarn_mappings}:v2")
