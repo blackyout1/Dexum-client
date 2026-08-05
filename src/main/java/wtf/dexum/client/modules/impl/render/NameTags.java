@@ -39,6 +39,7 @@ import wtf.dexum.client.modules.api.setting.impl.BooleanSetting;
 import wtf.dexum.client.modules.api.setting.impl.MultiBooleanSetting;
 import wtf.dexum.client.modules.api.setting.impl.NumberSetting;
 import wtf.dexum.client.modules.impl.misc.NameProtect;
+import wtf.dexum.client.modules.impl.misc.PartyModuleCloud;
 import wtf.dexum.client.modules.impl.misc.ScoreboardHealth;
 import wtf.dexum.utility.game.other.ReplaceUtil;
 import wtf.dexum.utility.game.player.PlayerIntersectionUtil;
@@ -68,6 +69,7 @@ public class NameTags extends Module {
     private final BooleanSetting showDistance = new BooleanSetting("Показывать дистанцию", false);
     private final BooleanSetting showPing = new BooleanSetting("Показывать пинг", false);
     private final BooleanSetting showFriendTag = new BooleanSetting("Показывать тег друга [F]", true);
+    private final BooleanSetting showPartyTag = new BooleanSetting("Показывать тег пати [P]", true);
     private final BooleanSetting hpBarUnderName = new BooleanSetting("HP бар под неймтегом", false);
     
     // Настройки предметов
@@ -115,7 +117,7 @@ public class NameTags extends Module {
 
     @EventTarget
     private void onRender3D(EventRender3D e) {
-        if (!box3D.isEnabled() || mc.world == null || mc.player == null) {
+        if (mc.world == null || mc.player == null) {
             return;
         }
 
@@ -123,21 +125,52 @@ public class NameTags extends Module {
         int baseRGB = Dexum.getInstance().getThemeManager().getCurrentTheme().getColor().getRGB() & 0x00FFFFFF;
         int color = (150 << 24) | baseRGB;
 
-        for (PlayerEntity entity : mc.world.getPlayers()) {
-            if (entity == mc.player && !mc.getEntityRenderDispatcher().camera.isThirdPerson()) {
-                continue;
+        // 3D боксы для прогруженных игроков
+        if (box3D.isEnabled()) {
+            for (PlayerEntity entity : mc.world.getPlayers()) {
+                if (entity == mc.player && !mc.getEntityRenderDispatcher().camera.isThirdPerson()) {
+                    continue;
+                }
+
+                if (!entity.isAlive() || entity.isRemoved()) {
+                    continue;
+                }
+
+                double x = MathHelper.lerp(tickDelta, entity.lastRenderX, entity.getX());
+                double y = MathHelper.lerp(tickDelta, entity.lastRenderY, entity.getY());
+                double z = MathHelper.lerp(tickDelta, entity.lastRenderZ, entity.getZ());
+
+                Box localBox = entity.getBoundingBox().offset(-entity.getX(), -entity.getY(), -entity.getZ());
+                Render3DUtil.drawBox(localBox.offset(x, y, z), color, 1.3f, true, true, false);
             }
+        }
 
-            if (!entity.isAlive() || entity.isRemoved()) {
-                continue;
+        // 3D ESP боксы для непрогруженных членов пати
+        if (PartyModuleCloud.INSTANCE.isEnabled() && PartyModuleCloud.INSTANCE.isInParty()) {
+            String currentDim = mc.player.getWorld().getRegistryKey().getValue().toString();
+            int partyColor = (200 << 24) | 0x00C800; // Ярко-зелёный RGB(0, 200, 0)
+            
+            for (PartyModuleCloud.PartyMemberData member : PartyModuleCloud.INSTANCE.getPartyMembersData()) {
+                // Проверяем что игрок не прогружен
+                boolean isLoaded = false;
+                for (PlayerEntity p : mc.world.getPlayers()) {
+                    if (p.getUuid().toString().equals(member.uuid)) {
+                        isLoaded = true;
+                        break;
+                    }
+                }
+                
+                if (isLoaded) continue; // Уже отрендерили выше
+                if (!member.dim.equals(currentDim)) continue; // Другое измерение
+                
+                // Рисуем бокс размером с игрока (0.6 x 1.8 x 0.6)
+                Box partyBox = new Box(
+                    member.x - 0.3, member.y, member.z - 0.3,
+                    member.x + 0.3, member.y + 1.8, member.z + 0.3
+                );
+                
+                Render3DUtil.drawBox(partyBox, partyColor, 2.0f, true, true, false);
             }
-
-            double x = MathHelper.lerp(tickDelta, entity.lastRenderX, entity.getX());
-            double y = MathHelper.lerp(tickDelta, entity.lastRenderY, entity.getY());
-            double z = MathHelper.lerp(tickDelta, entity.lastRenderZ, entity.getZ());
-
-            Box localBox = entity.getBoundingBox().offset(-entity.getX(), -entity.getY(), -entity.getZ());
-            Render3DUtil.drawBox(localBox.offset(x, y, z), color, 1.3f, true, true, false);
         }
     }
 
@@ -151,6 +184,7 @@ public class NameTags extends Module {
         int alpha = (int) backgroundAlpha.getCurrent();
         themeDark = themeDark.withAlpha(alpha);
         
+        // Сначала рендерим прогруженных игроков
         for (PlayerEntity entity : mc.world.getPlayers()) {
             if (entity == mc.player && !mc.getEntityRenderDispatcher().camera.isThirdPerson()) {
                 continue;
@@ -160,7 +194,11 @@ public class NameTags extends Module {
                 continue;
             }
 
-            if (!ProjectionUtil.canSee(entity.getBoundingBox().getCenter())) {
+            // Проверяем видимость (для пати членов показываем всегда)
+            boolean isPartyMember = PartyModuleCloud.INSTANCE.isEnabled() && PartyModuleCloud.INSTANCE.isInParty() 
+                && PartyModuleCloud.INSTANCE.isPlayerInParty(entity.getUuid().toString());
+                
+            if (!isPartyMember && !ProjectionUtil.canSee(entity.getBoundingBox().getCenter())) {
                 continue;
             }
 
@@ -168,245 +206,344 @@ public class NameTags extends Module {
             double y = MathHelper.lerp(tickDelta, entity.lastRenderY, entity.getY()) + (double)entity.getHeight() + 0.2D;
             double z = MathHelper.lerp(tickDelta, entity.lastRenderZ, entity.getZ());
 
-            if (!mc.getEntityRenderDispatcher().camera.isThirdPerson()) {
-                Vec3d cameraPos = mc.getEntityRenderDispatcher().camera.getPos();
-                Vec3d entityPosRel = new Vec3d(x, y, z).subtract(cameraPos);
-
-                float pitch = mc.getEntityRenderDispatcher().camera.getPitch();
-                float yaw = mc.getEntityRenderDispatcher().camera.getYaw();
-                float f = MathHelper.cos(-yaw * 0.017453292F - (float)Math.PI);
-                float f1 = MathHelper.sin(-yaw * 0.017453292F - (float)Math.PI);
-                float f2 = -MathHelper.cos(-pitch * 0.017453292F);
-                float f3 = MathHelper.sin(-pitch * 0.017453292F);
-                Vec3d actualLookVec = new Vec3d(f1 * f2, f3, f * f2);
-
-                if (entityPosRel.dotProduct(actualLookVec) < 0) {
-                    continue;
-                }
-            }
-
-            Vec3d pos = ProjectionUtil.worldSpaceToScreenSpace(new Vec3d(x, y, z));
-            if (pos.z <= 0.0D || pos.z >= 1.0D) {
-                continue;
-            }
-
-            Vector4d position = ProjectionUtil.getVector4D(entity);
-            if (position == null) continue;
-
-            float scale = size.getCurrent();
-            float posY = (float)(position.y - 11.0D);
+            renderPlayerTag(e, entity, x, y, z, themeDark, alpha, tickDelta);
+        }
+        
+        // Теперь рендерим непрогруженных пати членов
+        if (PartyModuleCloud.INSTANCE.isEnabled() && PartyModuleCloud.INSTANCE.isInParty()) {
+            String currentDim = mc.player.getWorld().getRegistryKey().getValue().toString();
             
-            // Вычисляем расстояние
-            double distance = mc.player.getPos().distanceTo(entity.getPos());
-            
-            // Формируем текст
-            Text nameText = Text.empty();
-            boolean isFriend = Dexum.getInstance().getFriendManager().isFriend(entity.getNameForScoreboard());
-            
-            // Тег друга
-            if (showFriendTag.isEnabled() && isFriend) {
-                nameText = nameText.copy().append(Text.literal("[F] ").setStyle(Style.EMPTY.withColor(Formatting.GREEN)));
-            }
-            
-            // Имя
-            if (showName.isEnabled()) {
-                Text name = entity == mc.player && NameProtect.INSTANCE.isEnabled() 
-                    ? Text.literal(NameProtect.getCustomName()) 
-                    : ReplaceUtil.replaceSymbols(entity.getDisplayName());
-                nameText = nameText.copy().append(name);
-            }
-            
-            // HP
-            float hp = ScoreboardHealth.INSTANCE.isEnabled() && entity != mc.player 
-                ? PlayerIntersectionUtil.getHealth(entity) 
-                : entity.getHealth();
-                
-            if (showHP.isEnabled()) {
-                nameText = nameText.copy()
-                    .append(Text.literal(" ").setStyle(Style.EMPTY.withColor(Formatting.GRAY)))
-                    .append(Text.literal(String.format("%.1f", hp)).setStyle(Style.EMPTY.withColor(Formatting.RED)));
-            }
-            
-            // Дистанция
-            if (showDistance.isEnabled()) {
-                nameText = nameText.copy()
-                    .append(Text.literal(" " + String.format("%.0f", distance) + "m").setStyle(Style.EMPTY.withColor(Formatting.GRAY)));
-            }
-            
-            // Пинг
-            if (showPing.isEnabled() && entity instanceof AbstractClientPlayerEntity player) {
-                int ping = mc.getNetworkHandler().getPlayerListEntry(player.getUuid()) != null 
-                    ? mc.getNetworkHandler().getPlayerListEntry(player.getUuid()).getLatency() 
-                    : 0;
-                nameText = nameText.copy()
-                    .append(Text.literal(" " + ping + "ms").setStyle(Style.EMPTY.withColor(Formatting.YELLOW)));
-            }
-
-            float textWidth = Fonts.REGULAR.getWidth(nameText.getString(), 6.5F * scale);
-            float headSize = 8.0F * scale;
-            float tagPadding = 2.0F * scale;
-            float totalTagWidth = headSize + tagPadding + textWidth + tagPadding * 2;
-            float tagX = (float)(position.x + (position.z - position.x) / 2.0D - (double)(totalTagWidth / 2.0F));
-            
-            // Высота с учетом HP бара
-            float tagHeight = 10.0F * scale;
-            float hpBarHeight = hpBarUnderName.isEnabled() && showHP.isEnabled() ? 3.0F * scale : 0;
-            float totalHeight = tagHeight + hpBarHeight;
-            
-            float tagY = posY - 1.0F * scale;
-
-            // Фон тега
-            ColorRGBA bgColor = isFriend && showFriendTag.isEnabled() 
-                ? new ColorRGBA(0, 166, 0, alpha) 
-                : themeDark;
-            
-            // Тень
-            DrawUtil.drawRoundedRect(e.getContext().getMatrices(), tagX - 0.5F, tagY - 0.5F + 1.0F, totalTagWidth + 1.0F, totalHeight + 1.0F, BorderRadius.all(2.0F), new ColorRGBA(0, 0, 0, alpha / 3));
-            
-            // Основной фон
-            DrawUtil.drawRoundedRect(e.getContext().getMatrices(), tagX, tagY, totalTagWidth, totalHeight, BorderRadius.all(2.0F), bgColor);
-
-            // Голова игрока
-            DrawUtil.drawPlayerHeadWithRoundedShader(
-                e.getContext().getMatrices(), 
-                entity instanceof AbstractClientPlayerEntity ? ((AbstractClientPlayerEntity)entity).getSkinTextures().texture() : DefaultSkinHelper.getSteve().texture(), 
-                tagX + tagPadding, 
-                tagY + 1.0F * scale, 
-                headSize, 
-                BorderRadius.all(1.5F), 
-                ColorRGBA.WHITE
-            );
-
-            // Текст
-            e.getContext().drawText(Fonts.REGULAR.getFont(6.5F * scale), nameText, tagX + headSize + tagPadding * 2, tagY + 2.0F * scale, 255.0F);
-
-            // HP бар под неймтегом (как в Delta)
-            if (hpBarUnderName.isEnabled() && showHP.isEnabled()) {
-                float maxHp = entity.getMaxHealth();
-                float hpRatio = MathHelper.clamp(hp / maxHp, 0.0f, 1.0f);
-                
-                float barWidth = totalTagWidth - 4.0F * scale;
-                float barHeight = 2.5F * scale;
-                float barX = tagX + 2.0F * scale;
-                float barY = tagY + tagHeight + 0.5F * scale;
-                
-                // Фон HP бара
-                DrawUtil.drawRoundedRect(e.getContext().getMatrices(), barX, barY, barWidth, barHeight, BorderRadius.all(1.0F), new ColorRGBA(0, 0, 0, 100));
-                
-                // HP бар с градиентом
-                ColorRGBA hpColor;
-                if (hpRatio > 0.75f) {
-                    hpColor = new ColorRGBA(85, 255, 85, 255);
-                } else if (hpRatio > 0.5f) {
-                    hpColor = new ColorRGBA(170, 255, 85, 255);
-                } else if (hpRatio > 0.25f) {
-                    hpColor = new ColorRGBA(255, 255, 85, 255);
-                } else {
-                    hpColor = new ColorRGBA(255, 85, 85, 255);
-                }
-                DrawUtil.drawRoundedRect(e.getContext().getMatrices(), barX, barY, barWidth * hpRatio, barHeight, BorderRadius.all(1.0F), hpColor);
-            }
-
-            // Предметы
-            if (showArmor.isEnabled()) {
-                ItemStack[] itemArray = new ItemStack[6];
-                int[] itemTypes = new int[6]; // 0 = armor, 1 = mainHand, 2 = offHand
-                int itemCount = 0;
-                EquipmentSlot[] slots = new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
-
-                for (EquipmentSlot slot : slots) {
-                    ItemStack stack = entity.getEquippedStack(slot);
-                    if (!stack.isEmpty()) {
-                        itemArray[itemCount] = stack;
-                        itemTypes[itemCount] = 0; // armor
-                        itemCount++;
+            for (PartyModuleCloud.PartyMemberData member : PartyModuleCloud.INSTANCE.getPartyMembersData()) {
+                // Проверяем что игрок не прогружен (не в мире)
+                boolean isLoaded = false;
+                for (PlayerEntity p : mc.world.getPlayers()) {
+                    if (p.getUuid().toString().equals(member.uuid)) {
+                        isLoaded = true;
+                        break;
                     }
                 }
+                
+                if (isLoaded) continue; // Уже отрендерили выше
+                if (!member.dim.equals(currentDim)) continue; // Другое измерение
+                
+                // Рендерим неймтег по координатам из пати
+                double x = member.x;
+                double y = member.y + 2.0; // +2 блока над позицией
+                double z = member.z;
+                
+                renderPartyMemberTag(e, member, x, y, z, themeDark, alpha);
+            }
+        }
+    }
+    
+    private void renderPlayerTag(EventRender2D e, PlayerEntity entity, double x, double y, double z, ColorRGBA themeDark, int alpha, float tickDelta) {
+        if (!mc.getEntityRenderDispatcher().camera.isThirdPerson()) {
+            Vec3d cameraPos = mc.getEntityRenderDispatcher().camera.getPos();
+            Vec3d entityPosRel = new Vec3d(x, y, z).subtract(cameraPos);
 
-                if (showMainHand.isEnabled()) {
-                    ItemStack mainHand = entity.getMainHandStack();
-                    if (!mainHand.isEmpty()) {
-                        itemArray[itemCount] = mainHand;
-                        itemTypes[itemCount] = 1; // mainHand
-                        itemCount++;
-                    }
+            float pitch = mc.getEntityRenderDispatcher().camera.getPitch();
+            float yaw = mc.getEntityRenderDispatcher().camera.getYaw();
+            float f = MathHelper.cos(-yaw * 0.017453292F - (float)Math.PI);
+            float f1 = MathHelper.sin(-yaw * 0.017453292F - (float)Math.PI);
+            float f2 = -MathHelper.cos(-pitch * 0.017453292F);
+            float f3 = MathHelper.sin(-pitch * 0.017453292F);
+            Vec3d actualLookVec = new Vec3d(f1 * f2, f3, f * f2);
+
+            if (entityPosRel.dotProduct(actualLookVec) < 0) {
+                return;
+            }
+        }
+
+        Vec3d pos = ProjectionUtil.worldSpaceToScreenSpace(new Vec3d(x, y, z));
+        if (pos.z <= 0.0D || pos.z >= 1.0D) {
+            return;
+        }
+
+        Vector4d position = ProjectionUtil.getVector4D(entity);
+        if (position == null) return;
+
+        float scale = size.getCurrent();
+        float posY = (float)(position.y - 11.0D);
+        
+        // Вычисляем расстояние
+        double distance = mc.player.getPos().distanceTo(entity.getPos());
+        
+        // Формируем текст
+        Text nameText = Text.empty();
+        boolean isFriend = Dexum.getInstance().getFriendManager().isFriend(entity.getNameForScoreboard());
+        boolean isPartyMember2 = PartyModuleCloud.INSTANCE.isEnabled() && PartyModuleCloud.INSTANCE.isInParty() 
+            && PartyModuleCloud.INSTANCE.isPlayerInParty(entity.getUuid().toString());
+        
+        // Тег пати (приоритетнее друга)
+        if (showPartyTag.isEnabled() && isPartyMember2) {
+            nameText = nameText.copy().append(Text.literal("[P] ").setStyle(Style.EMPTY.withColor(Formatting.GREEN)));
+        }
+        // Тег друга
+        else if (showFriendTag.isEnabled() && isFriend) {
+            nameText = nameText.copy().append(Text.literal("[F] ").setStyle(Style.EMPTY.withColor(Formatting.GREEN)));
+        }
+        
+        // Имя
+        if (showName.isEnabled()) {
+            Text name = entity == mc.player && NameProtect.INSTANCE.isEnabled() 
+                ? Text.literal(NameProtect.getCustomName()) 
+                : ReplaceUtil.replaceSymbols(entity.getDisplayName());
+            nameText = nameText.copy().append(name);
+        }
+        
+        // HP
+        float hp = ScoreboardHealth.INSTANCE.isEnabled() && entity != mc.player 
+            ? PlayerIntersectionUtil.getHealth(entity) 
+            : entity.getHealth();
+            
+        if (showHP.isEnabled()) {
+            nameText = nameText.copy()
+                .append(Text.literal(" ").setStyle(Style.EMPTY.withColor(Formatting.GRAY)))
+                .append(Text.literal(String.format("%.1f", hp)).setStyle(Style.EMPTY.withColor(Formatting.RED)));
+        }
+        
+        // Дистанция
+        if (showDistance.isEnabled()) {
+            nameText = nameText.copy()
+                .append(Text.literal(" " + String.format("%.0f", distance) + "m").setStyle(Style.EMPTY.withColor(Formatting.GRAY)));
+        }
+        
+        // Пинг
+        if (showPing.isEnabled() && entity instanceof AbstractClientPlayerEntity player) {
+            int ping = mc.getNetworkHandler().getPlayerListEntry(player.getUuid()) != null 
+                ? mc.getNetworkHandler().getPlayerListEntry(player.getUuid()).getLatency() 
+                : 0;
+            nameText = nameText.copy()
+                .append(Text.literal(" " + ping + "ms").setStyle(Style.EMPTY.withColor(Formatting.YELLOW)));
+        }
+
+        float textWidth = Fonts.REGULAR.getWidth(nameText.getString(), 6.5F * scale);
+        float headSize = 8.0F * scale;
+        float tagPadding = 2.0F * scale;
+        float totalTagWidth = headSize + tagPadding + textWidth + tagPadding * 2;
+        float tagX = (float)(position.x + (position.z - position.x) / 2.0D - (double)(totalTagWidth / 2.0F));
+        
+        // Высота с учетом HP бара
+        float tagHeight = 10.0F * scale;
+        float hpBarHeight = hpBarUnderName.isEnabled() && showHP.isEnabled() ? 3.0F * scale : 0;
+        float totalHeight = tagHeight + hpBarHeight;
+        
+        float tagY = posY - 1.0F * scale;
+
+        // Фон тега
+        ColorRGBA bgColor;
+        if (showPartyTag.isEnabled() && isPartyMember2) {
+            bgColor = new ColorRGBA(0, 200, 0, alpha); // Ярко-зелёный для party
+        } else if (isFriend && showFriendTag.isEnabled()) {
+            bgColor = new ColorRGBA(0, 166, 0, alpha); // Зелёный для друзей
+        } else {
+            bgColor = themeDark; // Обычный цвет
+        }
+        
+        // Тень
+        DrawUtil.drawRoundedRect(e.getContext().getMatrices(), tagX - 0.5F, tagY - 0.5F + 1.0F, totalTagWidth + 1.0F, totalHeight + 1.0F, BorderRadius.all(2.0F), new ColorRGBA(0, 0, 0, alpha / 3));
+        
+        // Основной фон
+        DrawUtil.drawRoundedRect(e.getContext().getMatrices(), tagX, tagY, totalTagWidth, totalHeight, BorderRadius.all(2.0F), bgColor);
+
+        // Голова игрока
+        DrawUtil.drawPlayerHeadWithRoundedShader(
+            e.getContext().getMatrices(), 
+            entity instanceof AbstractClientPlayerEntity ? ((AbstractClientPlayerEntity)entity).getSkinTextures().texture() : DefaultSkinHelper.getSteve().texture(), 
+            tagX + tagPadding, 
+            tagY + 1.0F * scale, 
+            headSize, 
+            BorderRadius.all(1.5F), 
+            ColorRGBA.WHITE
+        );
+
+        // Текст
+        e.getContext().drawText(Fonts.REGULAR.getFont(6.5F * scale), nameText, tagX + headSize + tagPadding * 2, tagY + 2.0F * scale, 255.0F);
+
+        // HP бар под неймтегом (как в Delta)
+        if (hpBarUnderName.isEnabled() && showHP.isEnabled()) {
+            float maxHp = entity.getMaxHealth();
+            float hpRatio = MathHelper.clamp(hp / maxHp, 0.0f, 1.0f);
+            
+            float barWidth = totalTagWidth - 4.0F * scale;
+            float barHeight = 2.5F * scale;
+            float barX = tagX + 2.0F * scale;
+            float barY = tagY + tagHeight + 0.5F * scale;
+            
+            // Фон HP бара
+            DrawUtil.drawRoundedRect(e.getContext().getMatrices(), barX, barY, barWidth, barHeight, BorderRadius.all(1.0F), new ColorRGBA(0, 0, 0, 100));
+            
+            // HP бар с градиентом
+            ColorRGBA hpColor;
+            if (hpRatio > 0.75f) {
+                hpColor = new ColorRGBA(85, 255, 85, 255);
+            } else if (hpRatio > 0.5f) {
+                hpColor = new ColorRGBA(170, 255, 85, 255);
+            } else if (hpRatio > 0.25f) {
+                hpColor = new ColorRGBA(255, 255, 85, 255);
+            } else {
+                hpColor = new ColorRGBA(255, 85, 85, 255);
+            }
+            DrawUtil.drawRoundedRect(e.getContext().getMatrices(), barX, barY, barWidth * hpRatio, barHeight, BorderRadius.all(1.0F), hpColor);
+        }
+
+        // Предметы
+        if (showArmor.isEnabled()) {
+            ItemStack[] itemArray = new ItemStack[6];
+            int[] itemTypes = new int[6]; // 0 = armor, 1 = mainHand, 2 = offHand
+            int itemCount = 0;
+            EquipmentSlot[] slots = new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
+
+            for (EquipmentSlot slot : slots) {
+                ItemStack stack = entity.getEquippedStack(slot);
+                if (!stack.isEmpty()) {
+                    itemArray[itemCount] = stack;
+                    itemTypes[itemCount] = 0; // armor
+                    itemCount++;
                 }
+            }
 
-                if (showOffHand.isEnabled()) {
-                    ItemStack offHand = entity.getOffHandStack();
-                    if (!offHand.isEmpty()) {
-                        itemArray[itemCount] = offHand;
-                        itemTypes[itemCount] = 2; // offHand
-                        itemCount++;
-                    }
+            if (showMainHand.isEnabled()) {
+                ItemStack mainHand = entity.getMainHandStack();
+                if (!mainHand.isEmpty()) {
+                    itemArray[itemCount] = mainHand;
+                    itemTypes[itemCount] = 1; // mainHand
+                    itemCount++;
                 }
+            }
 
-                if (itemCount > 0) {
-                    float iconSize = 16.0F * scale;
-                    float spacing = 0.0F;
-                    float totalWidth = (float)itemCount * iconSize + (float)(itemCount - 1) * spacing;
-                    float startX = (float)(position.x + (position.z - position.x) / 2.0D - (double)(totalWidth / 2.0F) + 7.5D * scale);
-                    float iconY = posY - 12.0F * scale;
-                    MatrixStack matrices = e.getContext().getMatrices();
+            if (showOffHand.isEnabled()) {
+                ItemStack offHand = entity.getOffHandStack();
+                if (!offHand.isEmpty()) {
+                    itemArray[itemCount] = offHand;
+                    itemTypes[itemCount] = 2; // offHand
+                    itemCount++;
+                }
+            }
 
-                    for (int i = 0; i < itemCount; ++i) {
-                        ItemStack stack = itemArray[i];
-                        int itemType = itemTypes[i];
-                        if (stack != null && !stack.isEmpty()) {
-                            float x2 = startX + (float)i * (iconSize + spacing);
-                            ItemEnchantmentsComponent enchComp = EnchantmentHelper.getEnchantments(stack);
+            if (itemCount > 0) {
+                float iconSize = 16.0F * scale;
+                float spacing = 0.0F;
+                float totalWidth = (float)itemCount * iconSize + (float)(itemCount - 1) * spacing;
+                float startX = (float)(position.x + (position.z - position.x) / 2.0D - (double)(totalWidth / 2.0F) + 7.5D * scale);
+                float iconY = posY - 12.0F * scale;
+                MatrixStack matrices = e.getContext().getMatrices();
 
-                            if (!enchComp.isEmpty()) {
-                                Map<RegistryEntry<Enchantment>, Integer> enchMap = enchComp.getEnchantmentEntries().stream()
-                                        .collect(Collectors.toMap(Entry::getKey, it.unimi.dsi.fastutil.objects.Object2IntMap.Entry::getIntValue));
-                                float enchantmentY = iconY - 16.0F * scale;
+                for (int i = 0; i < itemCount; ++i) {
+                    ItemStack stack = itemArray[i];
+                    int itemType = itemTypes[i];
+                    if (stack != null && !stack.isEmpty()) {
+                        float x2 = startX + (float)i * (iconSize + spacing);
+                        ItemEnchantmentsComponent enchComp = EnchantmentHelper.getEnchantments(stack);
 
-                                for (Map.Entry<RegistryEntry<Enchantment>, Integer> enchEntry : enchMap.entrySet()) {
-                                    int lvl = enchEntry.getValue();
-                                    if (lvl <= 0) continue;
+                        // Отключено отображение зачарований брони
+                        /*
+                        if (!enchComp.isEmpty()) {
+                            Map<RegistryEntry<Enchantment>, Integer> enchMap = enchComp.getEnchantmentEntries().stream()
+                                    .collect(Collectors.toMap(Entry::getKey, it.unimi.dsi.fastutil.objects.Object2IntMap.Entry::getIntValue));
+                            float enchantmentY = iconY - 16.0F * scale;
 
-                                    String fullName = Enchantment.getName(enchEntry.getKey(), lvl).getString();
-                                    String shortName = fullName.length() > 2 ? fullName.substring(0, 2) : fullName;
-                                    String enchantmentText = shortName + lvl;
-                                    float enchantmentTextWidth = Fonts.REGULAR.getWidth(enchantmentText, 6.0F * scale);
-                                    int color = -1;
-                                    if ((shortName.equalsIgnoreCase("Sh") && lvl > 5) || (shortName.equalsIgnoreCase("Pr") && lvl > 4)) {
-                                        color = (new ColorRGBA(212, 45, 43, 255)).getRGB();
-                                    }
+                            for (Map.Entry<RegistryEntry<Enchantment>, Integer> enchEntry : enchMap.entrySet()) {
+                                int lvl = enchEntry.getValue();
+                                if (lvl <= 0) continue;
 
-                                    e.getContext().drawText(Fonts.REGULAR.getFont(6.0F * scale), enchantmentText, x2 - enchantmentTextWidth / 2.0F, enchantmentY, new ColorRGBA(color));
-                                    enchantmentY -= 8.0F * scale;
+                                String fullName = Enchantment.getName(enchEntry.getKey(), lvl).getString();
+                                String shortName = fullName.length() > 2 ? fullName.substring(0, 2) : fullName;
+                                String enchantmentText = shortName + lvl;
+                                float enchantmentTextWidth = Fonts.REGULAR.getWidth(enchantmentText, 6.0F * scale);
+                                int color = -1;
+                                if ((shortName.equalsIgnoreCase("Sh") && lvl > 5) || (shortName.equalsIgnoreCase("Pr") && lvl > 4)) {
+                                    color = (new ColorRGBA(212, 45, 43, 255)).getRGB();
                                 }
-                            }
 
-                            // Название предмета в левой руке (itemType == 2 означает offHand)
-                            if (offHandItemName.isEnabled() && itemType == 2) {
-                                String itemName = stack.getName().getString();
-                                float itemNameWidth = Fonts.REGULAR.getWidth(itemName, 5.5F * scale);
-                                e.getContext().drawText(
-                                    Fonts.REGULAR.getFont(5.5F * scale), 
-                                    itemName, 
-                                    x2 + (iconSize - itemNameWidth) / 2.0F, 
-                                    iconY + iconSize + 2.0F * scale, 
-                                    new ColorRGBA(255, 255, 255, 255)
-                                );
+                                e.getContext().drawText(Fonts.REGULAR.getFont(6.0F * scale), enchantmentText, x2 - enchantmentTextWidth / 2.0F, enchantmentY, new ColorRGBA(color));
+                                enchantmentY -= 8.0F * scale;
                             }
-
-                            float itemScale = 0.7F * scale;
-                            float offset = -18.0F;
-                            matrices.push();
-                            matrices.translate(x2 + offset, iconY + offset, 0.0F);
-                            matrices.scale(itemScale, itemScale, 1.0F);
-                            int drawX = (int)(-offset);
-                            int drawY = (int)(-offset);
-                            e.getContext().drawItem(stack, drawX, drawY);
-                            e.getContext().drawStackOverlay(mc.textRenderer, stack, drawX, drawY);
-                            matrices.pop();
                         }
+                        */
+
+                        // Название предмета в левой руке (itemType == 2 означает offHand)
+                        if (offHandItemName.isEnabled() && itemType == 2) {
+                            String itemName = stack.getName().getString();
+                            float itemNameWidth = Fonts.REGULAR.getWidth(itemName, 5.5F * scale);
+                            e.getContext().drawText(
+                                Fonts.REGULAR.getFont(5.5F * scale), 
+                                itemName, 
+                                x2 + (iconSize - itemNameWidth) / 2.0F, 
+                                iconY + iconSize + 2.0F * scale, 
+                                new ColorRGBA(255, 255, 255, 255)
+                            );
+                        }
+
+                        float itemScale = 0.7F * scale;
+                        float offset = -18.0F;
+                        matrices.push();
+                        matrices.translate(x2 + offset, iconY + offset, 0.0F);
+                        matrices.scale(itemScale, itemScale, 1.0F);
+                        int drawX = (int)(-offset);
+                        int drawY = (int)(-offset);
+                        e.getContext().drawItem(stack, drawX, drawY);
+                        e.getContext().drawStackOverlay(mc.textRenderer, stack, drawX, drawY);
+                        matrices.pop();
                     }
                 }
             }
         }
+    }
+
+    private void renderPartyMemberTag(EventRender2D e, PartyModuleCloud.PartyMemberData member, double x, double y, double z, ColorRGBA themeDark, int alpha) {
+        // Проверяем что точка в поле зрения камеры
+        Vec3d pos = ProjectionUtil.worldSpaceToScreenSpace(new Vec3d(x, y, z));
+        if (pos.z <= 0.0D || pos.z >= 1.0D) {
+            return;
+        }
+
+        float scale = size.getCurrent();
+        float screenX = (float) pos.x;
+        float screenY = (float) pos.y;
+        
+        // Формируем текст
+        Text nameText = Text.empty();
+        
+        // Тег пати
+        if (showPartyTag.isEnabled()) {
+            nameText = nameText.copy().append(Text.literal("[P] ").setStyle(Style.EMPTY.withColor(Formatting.GREEN)));
+        }
+        
+        // Имя
+        if (showName.isEnabled()) {
+            nameText = nameText.copy().append(Text.literal(member.name).setStyle(Style.EMPTY.withColor(Formatting.WHITE)));
+        }
+        
+        // Дистанция
+        if (showDistance.isEnabled()) {
+            double distance = Math.sqrt(
+                Math.pow(x - mc.player.getX(), 2) + 
+                Math.pow(y - mc.player.getY(), 2) + 
+                Math.pow(z - mc.player.getZ(), 2)
+            );
+            nameText = nameText.copy()
+                .append(Text.literal(" " + String.format("%.0f", distance) + "m").setStyle(Style.EMPTY.withColor(Formatting.GRAY)));
+        }
+
+        float textWidth = Fonts.REGULAR.getWidth(nameText.getString(), 6.5F * scale);
+        float tagPadding = 4.0F * scale;
+        float totalTagWidth = textWidth + tagPadding * 2;
+        float tagX = screenX - totalTagWidth / 2.0F;
+        float tagHeight = 10.0F * scale;
+        float tagY = screenY - tagHeight / 2.0F;
+
+        // Ярко-зелёный фон для пати
+        ColorRGBA partyBg = new ColorRGBA(0, 200, 0, alpha);
+        
+        // Тень
+        DrawUtil.drawRoundedRect(e.getContext().getMatrices(), tagX - 0.5F, tagY - 0.5F + 1.0F, totalTagWidth + 1.0F, tagHeight + 1.0F, BorderRadius.all(2.0F), new ColorRGBA(0, 0, 0, alpha / 3));
+        
+        // Основной фон
+        DrawUtil.drawRoundedRect(e.getContext().getMatrices(), tagX, tagY, totalTagWidth, tagHeight, BorderRadius.all(2.0F), partyBg);
+
+        // Текст
+        e.getContext().drawText(Fonts.REGULAR.getFont(6.5F * scale), nameText, tagX + tagPadding, tagY + 2.0F * scale, 255.0F);
     }
 
     private void renderMobTags(float tickDelta, EventRender2D e) {

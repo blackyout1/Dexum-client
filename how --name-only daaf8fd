@@ -1,0 +1,137 @@
+[33mcommit daaf8fdcc5935582037d580081eed306c58feb34[m
+Author: blackyout1 <vlad2007krasavshik@gmail.com>
+Date:   Tue Aug 4 19:17:37 2026 +0200
+
+    добавлены вейпойнты
+
+[1mdiff --git a/src/main/java/wtf/dexum/base/comand/impl/GPSCommand.java b/src/main/java/wtf/dexum/base/comand/impl/GPSCommand.java[m
+[1mindex 6dd6687..fd74167 100644[m
+[1m--- a/src/main/java/wtf/dexum/base/comand/impl/GPSCommand.java[m
+[1m+++ b/src/main/java/wtf/dexum/base/comand/impl/GPSCommand.java[m
+[36m@@ -1,6 +1,6 @@[m
+ package wtf.dexum.base.comand.impl;[m
+ [m
+[31m-import com.mojang.brigadier.arguments.IntegerArgumentType;[m
+[32m+[m[32mimport com.mojang.brigadier.arguments.DoubleArgumentType;[m
+ import com.mojang.brigadier.arguments.StringArgumentType;[m
+ import com.mojang.brigadier.builder.LiteralArgumentBuilder;[m
+ import net.minecraft.command.CommandSource;[m
+[36m@@ -10,6 +10,8 @@[m [mimport wtf.dexum.base.comand.api.CommandAbstract;[m
+ import wtf.dexum.base.waypoint.Waypoint;[m
+ import wtf.dexum.utility.game.other.MessageUtil;[m
+ [m
+[32m+[m[32mimport java.util.Map;[m
+[32m+[m
+ public class GPSCommand extends CommandAbstract {[m
+    public GPSCommand() {[m
+       super("gps");[m
+[36m@@ -17,39 +19,75 @@[m [mpublic class GPSCommand extends CommandAbstract {[m
+ [m
+    @Native[m
+    public void execute(LiteralArgumentBuilder<CommandSource> builder) {[m
+[31m-      ((LiteralArgumentBuilder)((LiteralArgumentBuilder)((LiteralArgumentBuilder)builder.then(arg("X", IntegerArgumentType.integer()).then(arg("Z", IntegerArgumentType.integer()).executes((context) -> {[m
+[31m-         int x = (Integer)context.getArgument("X", Integer.class);[m
+[31m-         int z = (Integer)context.getArgument("Z", Integer.class);[m
+[31m-         Waypoint waypoint = new Waypoint((double)x, (double)z);[m
+[31m-         Dexum.getInstance().getWaypointManager().set(waypoint);[m
+[31m-         MessageUtil.displayInfo("GPS создан и указывает на XZ: %s, %s".formatted(new Object[]{x, z}));[m
+[31m-         return 1;[m
+[31m-      })))).then(literal("player").then(arg("name", StringArgumentType.word()).then(arg("X", IntegerArgumentType.integer()).then(arg("Z", IntegerArgumentType.integer()).executes((context) -> {[m
+[31m-         String name = (String)context.getArgument("name", String.class);[m
+[31m-         int x = (Integer)context.getArgument("X", Integer.class);[m
+[31m-         int z = (Integer)context.getArgument("Z", Integer.class);[m
+[31m-         Waypoint waypoint = new Waypoint(name, (double)x, (double)z);[m
+[31m-         Dexum.getInstance().getWaypointManager().setPlayerWaypoint(waypoint);[m
+[31m-         MessageUtil.displayInfo("GPS создан и указывает на XZ: %s, %s".formatted(new Object[]{x, z}));[m
+[31m-         return 1;[m
+[31m-      })))))).then(literal("player").then(literal("remove").executes((context) -> {[m
+[31m-         if (!Dexum.getInstance().getWaypointManager().isEmptyPlayerWaypoint()) {[m
+[31m-            Dexum.getInstance().getWaypointManager().clearPlayerWaypoint();[m
+[31m-            MessageUtil.displayInfo("GPS удален");[m
+[31m-         } else {[m
+[31m-            MessageUtil.displayInfo("Нет активного GPS");[m
+[31m-         }[m
+[32m+[m[32m      // .gps add <name> <x> <y> <z>[m
+[32m+[m[32m      builder.then(literal("add")[m
+[32m+[m[32m         .then(arg("name", StringArgumentType.word())[m
+[32m+[m[32m            .then(arg("x", DoubleArgumentType.doubleArg())[m
+[32m+[m[32m               .then(arg("y", DoubleArgumentType.doubleArg())[m
+[32m+[m[32m                  .then(arg("z", DoubleArgumentType.doubleArg())[m
+[32m+[m[32m                     .executes(context -> {[m
+[32m+[m[32m                        String name = context.getArgument("name", String.class);[m
+[32m+[m[32m                        double x = context.getArgument("x", Double.class);[m
+[32m+[m[32m                        double y = context.getArgument("y", Double.class);[m
+[32m+[m[32m                        double z = context.getArgument("z", Double.class);[m
+[32m+[m[41m                        [m
+[32m+[m[32m                        Waypoint waypoint = new Waypoint(name, x, y, z);[m
+[32m+[m[32m                        Dexum.getInstance().getWaypointManager().addWaypoint(name, waypoint);[m
+[32m+[m[32m                        MessageUtil.displayInfo("§aGPS точка '§f%s§a' добавлена: §f%.1f, %.1f, %.1f".formatted(name, x, y, z));[m
+[32m+[m[32m                        return 1;[m
+[32m+[m[32m                     })[m
+[32m+[m[32m                  )[m
+[32m+[m[32m               )[m
+[32m+[m[32m            )[m
+[32m+[m[32m         )[m
+[32m+[m[32m      );[m
+[32m+[m
+[32m+[m[32m      // .gps remove <name>[m
+[32m+[m[32m      builder.then(literal("remove")[m
+[32m+[m[32m         .then(arg("name", StringArgumentType.word())[m
+[32m+[m[32m            .executes(context -> {[m
+[32m+[m[32m               String name = context.getArgument("name", String.class);[m
+[32m+[m[41m               [m
+[32m+[m[32m               if (Dexum.getInstance().getWaypointManager().removeWaypoint(name)) {[m
+[32m+[m[32m                  MessageUtil.displayInfo("§aGPS точка '§f%s§a' удалена".formatted(name));[m
+[32m+[m[32m               } else {[m
+[32m+[m[32m                  MessageUtil.displayInfo("§cGPS точка '§f%s§c' не найдена".formatted(name));[m
+[32m+[m[32m               }[m
+[32m+[m[32m               return 1;[m
+[32m+[m[32m            })[m
+[32m+[m[32m         )[m
+[32m+[m[32m      );[m
+ [m
+[31m-         return 1;[m
+[31m-      })))).then(literal("remove").executes((context) -> {[m
+[31m-         if (!Dexum.getInstance().getWaypointManager().isEmpty()) {[m
+[31m-            Dexum.getInstance().getWaypointManager().clear();[m
+[31m-            MessageUtil.displayInfo("GPS на точку игрока удален");[m
+[31m-         } else {[m
+[31m-            MessageUtil.displayInfo("Нет активного на игрока GPS");[m
+[31m-         }[m
+[32m+[m[32m      // .gps clear[m
+[32m+[m[32m      builder.then(literal("clear")[m
+[32m+[m[32m         .executes(context -> {[m
+[32m+[m[32m            int count = Dexum.getInstance().getWaypointManager().clearAll();[m
+[32m+[m[32m            if (count > 0) {[m
+[32m+[m[32m               MessageUtil.displayInfo("§aУдалено GPS точек: §f%d".formatted(count));[m
+[32m+[m[32m            } else {[m
+[32m+[m[32m               MessageUtil.displayInfo("§cНет GPS точек для удаления");[m
+[32m+[m[32m            }[m
+[32m+[m[32m            return 1;[m
+[32m+[m[32m         })[m
+[32m+[m[32m      );[m
+ [m
+[31m-         return 1;[m
+[31m-      }));[m
+[32m+[m[32m      // .gps list[m
+[32m+[m[32m      builder.then(literal("list")[m
+[32m+[m[32m         .executes(context -> {[m
+[32m+[m[32m            Map<String, Waypoint> waypoints = Dexum.getInstance().getWaypointManager().getAllWaypoints();[m
+[32m+[m[41m            [m
+[32m+[m[32m            if (waypoints.isEmpty()) {[m
+[32m+[m[32m               MessageUtil.displayInfo("§cСписок GPS точек пуст");[m
+[32m+[m[32m            } else {[m
+[32m+[m[32m               MessageUtil.displayInfo("§aСписок GPS точек §f(%d)§a:".formatted(waypoints.size()));[m
+[32m+[m[32m               for (Map.Entry<String, Waypoint> entry : waypoints.entrySet()) {[m
+[32m+[m[32m                  Waypoint wp = entry.getValue();[m
+[32m+[m[32m                  MessageUtil.displayInfo("  §f%s§7: §f%.1f, %.1f, %.1f".formatted([m
+[32m+[m[32m                     entry.getKey(), wp.getX(), wp.getY(), wp.getZ()));[m
+[32m+[m[32m               }[m
+[32m+[m[32m            }[m
+[32m+[m[32m            return 1;[m
+[32m+[m[32m         })[m
+[32m+[m[32m      );[m
+    }[m
+ }[m
+\ No newline at end of file[m
+[1mdiff --git a/src/main/java/wtf/dexum/base/modules/ModuleManager.java b/src/main/java/wt

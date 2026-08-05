@@ -4,22 +4,57 @@ import com.darkmagician6.eventapi.EventManager;
 import com.darkmagician6.eventapi.EventTarget;
 import lombok.Generated;
 import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RotationAxis;
+import net.minecraft.util.math.Vec3d;
+import org.joml.Vector4d;
 import ru.nexusguard.protection.annotations.Native;
 import wtf.dexum.Dexum;
-import wtf.dexum.base.events.impl.render.EventHudRender;
+import wtf.dexum.base.events.impl.render.EventRender2D;
 import wtf.dexum.base.font.Fonts;
 import wtf.dexum.utility.interfaces.IClient;
+import wtf.dexum.utility.render.display.base.BorderRadius;
 import wtf.dexum.utility.render.display.base.color.ColorRGBA;
+import wtf.dexum.utility.render.display.shader.DrawUtil;
+import wtf.dexum.utility.math.ProjectionUtil;
+
+import java.util.*;
 
 public class WaypointManager implements IClient {
    private Waypoint activeWaypoint = null;
    private Waypoint activePlayerWaypoint = null;
+   
+   // Хранилище всех GPS точек по именам
+   private final Map<String, Waypoint> waypoints = new LinkedHashMap<>();
 
    public WaypointManager() {
       EventManager.register(this);
    }
 
+   // === Новые методы для работы с несколькими точками ===
+   
+   @Native
+   public void addWaypoint(String name, Waypoint waypoint) {
+      this.waypoints.put(name, waypoint);
+   }
+   
+   @Native
+   public boolean removeWaypoint(String name) {
+      return this.waypoints.remove(name) != null;
+   }
+   
+   @Native
+   public int clearAll() {
+      int size = this.waypoints.size();
+      this.waypoints.clear();
+      return size;
+   }
+   
+   @Generated
+   public Map<String, Waypoint> getAllWaypoints() {
+      return new LinkedHashMap<>(this.waypoints);
+   }
+
+   // === Старые методы (оставляем для совместимости) ===
+   
    @Native
    public void set(Waypoint waypoint) {
       this.activeWaypoint = waypoint;
@@ -30,7 +65,6 @@ public class WaypointManager implements IClient {
       if (this.activeWaypoint != null && this.activeWaypoint.equals(waypoint)) {
          this.activeWaypoint = null;
       }
-
    }
 
    @Native
@@ -52,7 +86,6 @@ public class WaypointManager implements IClient {
       if (this.activePlayerWaypoint != null && this.activeWaypoint.equals(waypoint)) {
          this.activePlayerWaypoint = null;
       }
-
    }
 
    @Native
@@ -64,51 +97,109 @@ public class WaypointManager implements IClient {
       return this.activePlayerWaypoint == null;
    }
 
+   // === Рендер плашек на координатах (как NameTags) ===
+   
    @EventTarget
-   public void onHUD(EventHudRender e) {
-      if (mc.player != null) {
-         float x;
-         float y;
-         float size;
-         double x2;
-         double z2;
-         int distance;
-         float yaw;
-         if (this.activeWaypoint != null) {
-            x = (float)mc.getWindow().getScaledWidth() / 2.0F;
-            y = (float)mc.getWindow().getScaledHeight() / 4.0F;
-            size = 16.0F;
-            e.getContext().getMatrices().push();
-            x2 = this.activeWaypoint.getX() - mc.player.getX();
-            z2 = this.activeWaypoint.getZ() - mc.player.getZ();
-            distance = (int)MathHelper.sqrt((float)(x2 * x2 + z2 * z2));
-            yaw = (float)(-(Math.atan2(x2, z2) * 57.29577951308232D)) - mc.gameRenderer.getCamera().getYaw();
-            e.getContext().drawText(Fonts.REGULAR.getFont(7.0F), distance + "m", x - Fonts.REGULAR.getWidth(distance + "m", 7.0F) / 2.0F, y + 8.0F, ColorRGBA.WHITE);
-            e.getContext().getMatrices().translate(x, y, 0.0F);
-            e.getContext().getMatrices().multiply(RotationAxis.POSITIVE_Z.rotationDegrees(yaw));
-            e.getContext().getMatrices().translate(-x, -y, 0.0F);
-            e.getContext().drawTexture(Dexum.id("icons/arrow.png"), x - size / 2.0F, y - size / 2.0F, size, size, Dexum.getInstance().getThemeManager().getCurrentTheme().getColor());
-            e.getContext().getMatrices().pop();
+   public void onRender2D(EventRender2D e) {
+      if (mc.player == null || mc.world == null) return;
+      
+      float tickDelta = e.getTickDelta();
+      ColorRGBA themeColor = Dexum.getInstance().getThemeManager().getCurrentTheme().getColor();
+      ColorRGBA bgColor = themeColor.darker(0.92F).withAlpha(200);
+      
+      // Рисуем все GPS точки
+      for (Map.Entry<String, Waypoint> entry : waypoints.entrySet()) {
+         Waypoint wp = entry.getValue();
+         String name = entry.getKey();
+         
+         // Координаты точки
+         double x = wp.getX();
+         double y = wp.getY();
+         double z = wp.getZ();
+         
+         // Проверяем видимость
+         Vec3d waypointPos = new Vec3d(x, y, z);
+         if (!ProjectionUtil.canSee(waypointPos)) {
+            continue;
          }
+         
+         // Проверяем что точка в поле зрения камеры
+         if (!mc.getEntityRenderDispatcher().camera.isThirdPerson()) {
+            Vec3d cameraPos = mc.getEntityRenderDispatcher().camera.getPos();
+            Vec3d entityPosRel = waypointPos.subtract(cameraPos);
 
-         if (this.activePlayerWaypoint != null) {
-            x = (float)mc.getWindow().getScaledWidth() / 2.0F;
-            y = (float)mc.getWindow().getScaledHeight() / 3.35F;
-            size = 16.0F;
-            e.getContext().getMatrices().push();
-            x2 = this.activeWaypoint.getX() - mc.player.getX();
-            z2 = this.activeWaypoint.getZ() - mc.player.getZ();
-            distance = (int)MathHelper.sqrt((float)(x2 * x2 + z2 * z2));
-            yaw = (float)(-(Math.atan2(x2, z2) * 57.29577951308232D)) - mc.gameRenderer.getCamera().getYaw();
-            e.getContext().drawText(Fonts.REGULAR.getFont(7.0F), this.activePlayerWaypoint.getName(), x - Fonts.REGULAR.getWidth(this.activePlayerWaypoint.getName(), 7.0F) / 2.0F, y + 7.0F, ColorRGBA.WHITE);
-            e.getContext().drawText(Fonts.REGULAR.getFont(7.0F), distance + "m", x - Fonts.REGULAR.getWidth(distance + "m", 7.0F) / 2.0F, y + 14.0F, ColorRGBA.WHITE);
-            e.getContext().getMatrices().translate(x, y, 0.0F);
-            e.getContext().getMatrices().multiply(RotationAxis.POSITIVE_Z.rotationDegrees(yaw));
-            e.getContext().getMatrices().translate(-x, -y, 0.0F);
-            e.getContext().drawTexture(Dexum.id("icons/arrow.png"), x - size / 2.0F, y - size / 2.0F, size, size, new ColorRGBA(255, 32, 32));
-            e.getContext().getMatrices().pop();
+            float pitch = mc.getEntityRenderDispatcher().camera.getPitch();
+            float yaw = mc.getEntityRenderDispatcher().camera.getYaw();
+            float f = MathHelper.cos(-yaw * 0.017453292F - (float)Math.PI);
+            float f1 = MathHelper.sin(-yaw * 0.017453292F - (float)Math.PI);
+            float f2 = -MathHelper.cos(-pitch * 0.017453292F);
+            float f3 = MathHelper.sin(-pitch * 0.017453292F);
+            Vec3d actualLookVec = new Vec3d(f1 * f2, f3, f * f2);
+
+            if (entityPosRel.dotProduct(actualLookVec) < 0) {
+               continue;
+            }
          }
-
+         
+         // Преобразуем в экранные координаты
+         Vec3d screenPos = ProjectionUtil.worldSpaceToScreenSpace(waypointPos);
+         if (screenPos.z <= 0.0D || screenPos.z >= 1.0D) {
+            continue;
+         }
+         
+         // Расстояние до точки
+         double distance = mc.player.getPos().distanceTo(waypointPos);
+         String distText = String.format("%.0fm", distance);
+         
+         // Размеры плашки
+         float scale = 1.0f;
+         float nameWidth = Fonts.MEDIUM.getWidth(name, 7.0f * scale);
+         float distWidth = Fonts.REGULAR.getWidth(distText, 6.5f * scale);
+         float plateWidth = Math.max(nameWidth, distWidth) + 12.0f * scale;
+         float plateHeight = 22.0f * scale;
+         
+         // Используем screenPos напрямую
+         float plateX = (float)screenPos.x - plateWidth / 2.0f;
+         float plateY = (float)screenPos.y - plateHeight / 2.0f;
+         
+         // Тень
+         DrawUtil.drawRoundedRect(e.getContext().getMatrices(), 
+            plateX - 0.5F, plateY - 0.5F + 1.0F, 
+            plateWidth + 1.0F, plateHeight + 1.0F, 
+            BorderRadius.all(2.0F), 
+            new ColorRGBA(0, 0, 0, 66));
+         
+         // Фон плашки
+         DrawUtil.drawRoundedRect(e.getContext().getMatrices(), 
+            plateX, plateY, 
+            plateWidth, plateHeight, 
+            BorderRadius.all(2.0F), 
+            bgColor);
+         
+         // Цветная полоска сверху
+         DrawUtil.drawRoundedRect(e.getContext().getMatrices(),
+            plateX, plateY, 
+            plateWidth, 2.5f * scale,
+            new BorderRadius(2.0F, 2.0F, 0.0F, 0.0F),
+            themeColor);
+         
+         // Название точки (белый текст)
+         e.getContext().drawText(
+            Fonts.MEDIUM.getFont(7.0f * scale), 
+            name, 
+            plateX + (plateWidth - nameWidth) / 2.0f, 
+            plateY + 5.0f * scale, 
+            ColorRGBA.WHITE
+         );
+         
+         // Расстояние (серый текст)
+         e.getContext().drawText(
+            Fonts.REGULAR.getFont(6.5f * scale), 
+            distText, 
+            plateX + (plateWidth - distWidth) / 2.0f, 
+            plateY + 13.0f * scale, 
+            new ColorRGBA(180, 180, 180)
+         );
       }
    }
 

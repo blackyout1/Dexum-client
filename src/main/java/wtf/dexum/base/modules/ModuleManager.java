@@ -70,6 +70,7 @@ public final class ModuleManager implements IMinecraft {
         registerModule(AutoSwap.INSTANCE);
         registerModule(CrystalAura.INSTANCE);
         registerModule(AimBow.INSTANCE);
+        registerModule(NoFriendDamage.INSTANCE);
     }
 
     private void registerMovement() {
@@ -123,6 +124,7 @@ public final class ModuleManager implements IMinecraft {
 
     private void registerPlayer() {
         registerModule(AutoWarden.INSTANCE);
+        registerModule(AutoCup.INSTANCE);
         registerModule(AutoTool.INSTANCE);
         registerModule(AutoArmor.INSTANCE);
         registerModule(Blink.INSTANCE);
@@ -148,6 +150,8 @@ public final class ModuleManager implements IMinecraft {
         registerModule(CrystalOptimizer.INSTANCE);
         registerModule(FakePlayer.INSTANCE);
         registerModule(ChatHelper.INSTANCE);
+        registerModule(PartyModule.INSTANCE);
+        registerModule(PartyModuleCloud.INSTANCE); // Облачная версия
     }
 
     private void registerModule(Module module) {

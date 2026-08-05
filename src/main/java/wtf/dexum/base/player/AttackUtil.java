@@ -42,7 +42,7 @@ public final class AttackUtil implements IClient {
 
         double effectiveJumpHeight = (double)mc.player.getStepHeight();
         Vec3d jumpVec = new Vec3d(0.0D, effectiveJumpHeight, 0.0D);
-        Vec3d allowedMovement = mc.player.adjustMovementForCollisions(jumpVec);
+        Vec3d allowedMovement = mc.player.adjustMovementForCollisions(mc.player, jumpVec, mc.player.getBoundingBox(), mc.world, java.util.List.of());
         boolean notCrit = hasPreAttackRestrictions()
                 || allowedMovement.y < (double)mc.player.getStepHeight() - 0.5D && mc.player.isOnGround()
                 || mc.player.getVelocity().y == -0.005D && mc.player.isTouchingWater();

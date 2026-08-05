@@ -88,7 +88,7 @@ public final class Interface extends Module {
     }
 
     public void onEnable() {
-        this.init = System.currentTimeMillis();git reflog -50
+        this.init = System.currentTimeMillis();
         super.onEnable();
     }
 
