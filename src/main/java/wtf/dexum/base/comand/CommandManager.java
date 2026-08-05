@@ -35,6 +35,7 @@ public class CommandManager {
       this.registerCommand(new ConfigCommand());
       this.registerCommand(new RCTCommand());
       this.registerCommand(new GPSCommand());
+      this.registerCommand(new wtf.dexum.base.comand.impl.PartyCommand());
    }
 
    @Native

@@ -59,8 +59,8 @@ public class TargetHudComponent extends DraggableHudElement {
     private void renderClassic(CustomDrawContext ctx, LivingEntity target, float animation) {
         float posX = this.getX();
         float posY = this.getY();
-        float width = 145.0F; // уменьшил ширину
-        float height = 45.0F; // уменьшил высоту
+        float width = 160.0F; // компактнее
+        float height = 50.0F; // нормальная высота
         ColorRGBA hudC = Dexum.getInstance().getThemeManager().getCurrentTheme().getColor();
         ColorRGBA hudC2 = Dexum.getInstance().getThemeManager().getCurrentTheme().getSecondColor();
         ColorRGBA hudBg = wtf.dexum.client.modules.impl.render.Interface.getHudColor();
@@ -96,29 +96,29 @@ public class TargetHudComponent extends DraggableHudElement {
             skinTextures = DefaultSkinHelper.getSteve().texture();
         }
 
-        // Голова игрока слева
-        float headSize = 35.0F; // немного уменьшил
+        // Голова игрока слева (больше)
+        float headSize = 40.0F;
         DrawUtil.drawPlayerHeadWithRoundedShader(ctx.getMatrices(), skinTextures, posX + 5.0F, posY + 5.0F, headSize, BorderRadius.all(4.0F), ColorRGBA.WHITE.withAlpha(a));
 
         float contentX = posX + headSize + 10.0F;
         
-        // Ник игрока сверху
+        // Ник игрока сверху (крупный)
         String name = target == mc.player ? NameProtect.getCustomName() : target.getNameForScoreboard();
-        ctx.drawText(Fonts.MEDIUM.getFont(9.0F), name, contentX, posY + 7.0F, ColorRGBA.WHITE.withAlpha(a));
+        ctx.drawText(Fonts.MEDIUM.getFont(11.0F), name, contentX, posY + 5.0F, ColorRGBA.WHITE.withAlpha(a));
 
-        // Броня и предметы горизонтально (под ником)
+        // Броня (4 иконки) + предмет левой руки справа (под ником) 
         if (target instanceof PlayerEntity) {
-            this.drawArmorHorizontal(ctx, (PlayerEntity)target, contentX, posY + 18.0F, animation);
+            this.drawArmorAndOffhand(ctx, (PlayerEntity)target, contentX, posY + 18.0F, animation, a);
         }
 
-        // HP текст: "20/20hp" и "100%"
+        // HP текст: "20/20hp" слева внизу
         String hpText = String.format("%.0f/%.0fhp", hp, maxHp);
-        String percentText = String.format("%.0f%%", (hp / maxHp) * 100);
-        
-        float hpY = posY + height - 13.0F;
+        float hpY = posY + height - 16.0F;
         ctx.drawText(Fonts.REGULAR.getFont(7.0F), hpText, contentX, hpY, ColorRGBA.WHITE.withAlpha(a));
         
-        float percentX = posX + width - Fonts.REGULAR.getWidth(percentText, 7.0F) - 8.0F;
+        // "100%" рядом
+        String percentText = String.format("%.0f%%", (hp / maxHp) * 100);
+        float percentX = contentX + Fonts.REGULAR.getWidth(hpText, 7.0F) + 5.0F;
         ctx.drawText(Fonts.REGULAR.getFont(7.0F), percentText, percentX, hpY, ColorRGBA.WHITE.withAlpha(a));
 
         // HP bar снизу (градиентный от темы)
@@ -155,45 +155,60 @@ public class TargetHudComponent extends DraggableHudElement {
         this.height = height;
     }
     
-    // Отрисовка брони горизонтально
-    private void drawArmorHorizontal(CustomDrawContext ctx, PlayerEntity player, float posX, float posY, float animation) {
-        float boxSize = 16.0F; // увеличил размер иконок
+    // Отрисовка брони (4 иконки) + предмет левой руки справа
+    private void drawArmorAndOffhand(CustomDrawContext ctx, PlayerEntity player, float posX, float posY, float animation, int alpha) {
+        float boxSize = 16.0F; // стандартный размер слота
         float padding = 3.0F;
         float iconX = posX;
         List<ItemStack> armor = player.getInventory().armor;
         
-        // Порядок: предмет в левой руке, броня (шлем, нагрудник, штаны, ботинки)
-        ItemStack offHandStack = player.getOffHandStack();
-        ItemStack[] items = new ItemStack[]{
-            offHandStack,
+        // Порядок: шлем, нагрудник, штаны, ботинки (4 иконки брони)
+        ItemStack[] armorItems = new ItemStack[]{
             armor.get(3), // шлем
             armor.get(2), // нагрудник
             armor.get(1), // штаны
             armor.get(0)  // ботинки
         };
 
-        for(int i = 0; i < items.length; i++) {
-            ItemStack stack = items[i];
+        // Рисуем 4 иконки брони
+        for(int i = 0; i < armorItems.length; i++) {
+            ItemStack stack = armorItems[i];
             if (!stack.isEmpty()) {
                 ctx.getMatrices().push();
-                ctx.getMatrices().translate(iconX + (boxSize - 16.0) / 2.0, posY + (boxSize - 16.0) / 2.0, 0.0);
-                ctx.getMatrices().scale(1.0F * animation, 1.0F * animation, 1.0F * animation);
+                ctx.getMatrices().translate(iconX, posY, 0.0);
+                ctx.getMatrices().scale(animation, animation, animation);
                 ctx.drawItem(stack, 0, 0);
                 ((DrawContextAccessor)ctx).callDrawItemBar(stack, 0, 0);
                 ctx.getMatrices().pop();
-                
-                // Если это первый предмет (левая рука) и он не пустой, рисуем название под ним
-                if (i == 0 && !stack.isEmpty()) {
-                    String itemName = stack.getName().getString();
-                    if (itemName.length() > 12) {
-                        itemName = itemName.substring(0, 12) + "...";
-                    }
-                    ctx.drawText(Fonts.REGULAR.getFont(6.0F), itemName, 
-                                iconX, posY + boxSize + 1.0F, 
-                                new ColorRGBA(200, 200, 200, (int)(200 * animation)));
-                }
             }
             iconX += boxSize + padding;
+        }
+        
+        // Предмет левой руки справа (с отступом)
+        ItemStack offHandStack = player.getOffHandStack();
+        if (!offHandStack.isEmpty()) {
+            float offhandX = iconX + 5.0F; // дополнительный отступ
+            
+            // Название предмета СВЕРХУ над иконкой (компактно)
+            String itemName = offHandStack.getName().getString();
+            if (itemName.length() > 10) {
+                itemName = itemName.substring(0, 10) + "..";
+            }
+            
+            float textWidth = Fonts.REGULAR.getWidth(itemName, 6.0F);
+            float textX = offhandX + (boxSize - textWidth) / 2.0F - 10.0F; // сдвигаем левее на 10px
+            float textY = posY - 8.0F; // над иконкой
+            ctx.drawText(Fonts.REGULAR.getFont(6.0F), itemName, 
+                        textX, textY, 
+                        new ColorRGBA(200, 200, 200, alpha));
+            
+            // Сама иконка
+            ctx.getMatrices().push();
+            ctx.getMatrices().translate(offhandX, posY, 0.0);
+            ctx.getMatrices().scale(animation, animation, animation);
+            ctx.drawItem(offHandStack, 0, 0);
+            ((DrawContextAccessor)ctx).callDrawItemBar(offHandStack, 0, 0);
+            ctx.getMatrices().pop();
         }
     }
 
